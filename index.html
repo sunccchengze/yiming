@@ -1,0 +1,2577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#05080f">
+<title>星际指令</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&family=Major+Mono+Display&family=ZCOOL+QingKe+HuangYou&display=swap">
+<style>
+:root {
+  --bg-void: #05080f;
+  --bg-deep: #0a0e1a;
+  --bg-nebula: #0f1528;
+  --silver-100: #f0f1f5;
+  --silver-200: #c8ccd8;
+  --silver-300: #8b92a8;
+  --silver-400: #5a6178;
+  --cyan-glow: #7dd3fc;
+  --cyan-dim: #38bdf8;
+  --cyan-deep: #0c4a6e;
+  --purple-glow: #c4b5fd;
+  --purple-dim: #7c3aed;
+  --success: #4ade80;
+  --error: #f87171;
+  --gold: #fbbf24;
+  --gold-glow: #fde68a;
+  --glow-cyan: rgba(125, 211, 252, 0.08);
+  --glow-purple: rgba(196, 181, 253, 0.06);
+  --glow-gold: rgba(251, 191, 36, 0.10);
+  --font-display: 'Orbitron', -apple-system, sans-serif;
+  --font-mono: 'Share Tech Mono', 'Courier New', monospace;
+  --font-label: 'Major Mono Display', 'Share Tech Mono', monospace;
+  --font-cn-title: 'ZCOOL QingKe HuangYou', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-cn-body: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+  --content-max-width-mobile: 430px;
+  --card-padding: 20px;
+  --card-radius: 16px;
+  --button-radius: 12px;
+  --button-height: 48px;
+  --gap-sm: 8px;
+  --gap-md: 16px;
+  --gap-lg: 24px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; user-select: none; }
+input, textarea { user-select: auto; }
+html, body { overflow: hidden; height: 100%; position: fixed; width: 100%; background: var(--bg-void); color: var(--silver-200); font-family: var(--font-cn-body); font-size: 15px; line-height: 1.7; }
+
+.canvas-layer { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#canvas-bg { z-index: 1; }
+#canvas-fx { z-index: 2; }
+
+.font-display { font-family: var(--font-display); letter-spacing: 0.08em; }
+.font-mono { font-family: var(--font-mono); }
+.font-label { font-family: var(--font-label); letter-spacing: 0.15em; text-transform: uppercase; }
+.font-cn-title { font-family: var(--font-cn-title); }
+
+/* Status Bar */
+.status-bar {
+  position: fixed; top: 0; left: 0; right: 0; height: 36px;
+  display: none; align-items: center; justify-content: space-between;
+  padding: 0 16px; background: rgba(5,8,15,0.7); backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(125,211,252,0.08);
+  font-family: var(--font-mono); font-size: 11px; color: var(--silver-300);
+  letter-spacing: 0.05em; z-index: 50; transition: opacity 0.5s;
+}
+.status-bar.visible { display: flex; }
+
+/* Progress Bar */
+.progress-bar-container {
+  position: fixed; top: 36px; left: 0; right: 0;
+  display: none; flex-direction: column; align-items: center;
+  padding: 8px 16px; background: rgba(5,8,15,0.5);
+  backdrop-filter: blur(10px); z-index: 49; transition: opacity 0.5s;
+}
+.progress-bar-container.visible { display: flex; }
+.progress-track { width: 100%; max-width: 360px; height: 4px; background: rgba(125,211,252,0.1); border-radius: 2px; position: relative; overflow: hidden; }
+.progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan-deep), var(--cyan-glow)); border-radius: 2px; transition: width 0.8s cubic-bezier(0.34,1.56,0.64,1); }
+.progress-label { font-family: var(--font-label); font-size: 10px; color: var(--silver-400); margin-top: 4px; letter-spacing: 0.15em; }
+.medals-row { display: flex; gap: 12px; margin-top: 4px; }
+.medals-row .medal { font-size: 16px; opacity: 0.2; transition: all 0.5s; filter: grayscale(1); }
+.medals-row .medal.active { opacity: 1; filter: grayscale(0); transform: scale(1.2); }
+
+/* Scenes */
+.scene {
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  opacity: 0; visibility: hidden; transition: opacity 0.5s ease; z-index: 10;
+}
+.scene.scene-active { opacity: 1; visibility: visible; }
+.scene-content {
+  width: 100%; max-width: var(--content-max-width-mobile);
+  padding: 24px 20px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  max-height: 100vh; padding-bottom: env(safe-area-inset-bottom, 20px);
+  scrollbar-width: none;
+}
+.scene-content::-webkit-scrollbar { display: none; }
+
+/* Cards */
+.card {
+  background: rgba(15,21,40,0.65); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(125,211,252,0.12); border-radius: var(--card-radius);
+  box-shadow: 0 0 30px rgba(125,211,252,0.04), inset 0 1px 0 rgba(255,255,255,0.05);
+  padding: var(--card-padding);
+}
+
+@property --aurora-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+.card-aurora { position: relative; overflow: visible; }
+.card-aurora::before {
+  content: ''; position: absolute; inset: -1px; border-radius: inherit;
+  background: conic-gradient(from var(--aurora-angle), transparent 0%, var(--cyan-glow) 10%, transparent 20%, var(--purple-glow) 40%, transparent 50%, var(--gold-glow) 70%, transparent 80%);
+  opacity: 0.5; filter: blur(2px); animation: aurora-rotate 8s linear infinite; z-index: -1;
+}
+@keyframes aurora-rotate { to { --aurora-angle: 360deg; } }
+
+/* Buttons */
+.btn-primary {
+  background: linear-gradient(135deg, rgba(56,189,248,0.2), rgba(124,58,237,0.2));
+  border: 1px solid rgba(125,211,252,0.3); border-radius: var(--button-radius);
+  color: var(--cyan-glow); height: var(--button-height); padding: 0 32px;
+  font-family: var(--font-cn-body); font-size: 16px; font-weight: 500;
+  cursor: pointer; transition: all 0.3s ease; position: relative; overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-width: 160px;
+}
+.btn-primary:hover, .btn-primary:active { border-color: rgba(125,211,252,0.6); box-shadow: 0 0 20px rgba(125,211,252,0.15); transform: translateY(-1px); }
+.btn-primary::after {
+  content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(240,241,245,0.08), transparent);
+  animation: btn-shimmer 3s ease-in-out infinite;
+}
+@keyframes btn-shimmer { 0% { left: -100%; } 50%, 100% { left: 100%; } }
+.btn-primary:disabled { opacity: 0.5; pointer-events: none; }
+
+.btn-ghost {
+  background: transparent; border: 1px solid rgba(125,211,252,0.15);
+  border-radius: var(--button-radius); color: var(--silver-300);
+  height: 40px; padding: 0 24px; font-family: var(--font-cn-body);
+  font-size: 14px; cursor: pointer; transition: all 0.3s;
+}
+.btn-ghost:hover { border-color: rgba(125,211,252,0.3); color: var(--silver-200); }
+
+/* Input */
+.input-terminal {
+  background: rgba(5,8,15,0.8); border: 1px solid rgba(125,211,252,0.2);
+  border-radius: 10px; color: var(--cyan-glow); font-family: var(--font-mono);
+  font-size: 20px; letter-spacing: 8px; text-align: center;
+  height: 52px; width: 100%; max-width: 260px; caret-color: var(--cyan-glow);
+  transition: border-color 0.3s, box-shadow 0.3s; display: block; margin: 0 auto;
+}
+.input-terminal:focus { outline: none; border-color: rgba(125,211,252,0.5); box-shadow: 0 0 20px rgba(125,211,252,0.08); }
+.input-terminal.breathing { animation: input-breathe 3s ease-in-out infinite; }
+@keyframes input-breathe { 0%,100% { box-shadow: 0 0 10px rgba(125,211,252,0.05); } 50% { box-shadow: 0 0 25px rgba(125,211,252,0.12); } }
+
+/* Animations */
+@keyframes shake { 0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)} }
+.shake { animation: shake 0.3s ease; }
+@keyframes fadeInUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+.fade-in-up { animation: fadeInUp 0.5s ease forwards; }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.fade-in { animation: fadeIn 0.5s ease forwards; }
+@keyframes pulse { 0%,100%{opacity:0.6}50%{opacity:1} }
+.pulse { animation: pulse 2s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0} }
+.blink { animation: blink 1s step-end infinite; }
+@keyframes float-comment { 0%{right:-300px;opacity:0}15%{right:16px;opacity:1}75%{right:16px;opacity:1}100%{right:calc(100% + 300px);opacity:0} }
+
+/* Scene-specific */
+.scene-tag { font-size: 11px; color: var(--silver-400); margin-bottom: 8px; text-align: center; }
+.scene-hero { font-size: 32px; font-weight: 900; color: var(--silver-100); letter-spacing: 0.15em; text-shadow: 0 0 20px rgba(125,211,252,0.2); margin: 0; text-align: center; }
+.scene-subtag { font-size: 11px; color: var(--cyan-dim); margin-top: 8px; text-align: center; }
+
+/* Password Scene */
+#scene-password .typewriter-area { min-height: 200px; margin: 30px 0; font-family: var(--font-mono); font-size: 14px; line-height: 1.8; color: var(--silver-200); }
+#scene-password .typewriter-area .highlight { color: var(--cyan-glow); }
+.password-area { text-align: center; opacity: 0; transition: opacity 0.5s, transform 0.5s; transform: translateY(20px); }
+.password-area.visible { opacity: 1; transform: translateY(0); }
+.prompt-text { color: var(--silver-200); margin: 8px 0 16px; font-size: 14px; }
+.error-text { color: var(--error); font-size: 13px; min-height: 20px; margin-top: 12px; font-family: var(--font-mono); }
+.cursor-blink { display: inline-block; animation: blink 1s step-end infinite; color: var(--cyan-glow); }
+
+/* DNA Scene */
+.scan-area {
+  width: 70vw; height: 70vw; max-width: 300px; max-height: 300px;
+  border-radius: 50%; border: 2px solid var(--cyan-dim);
+  position: relative; margin: 20px auto; display: flex; align-items: center;
+  justify-content: center; cursor: pointer; touch-action: none;
+  background: radial-gradient(circle, rgba(56,189,248,0.05) 0%, transparent 70%);
+}
+.scan-ring {
+  position: absolute; inset: -6px; border-radius: 50%;
+  border: 2px solid transparent; border-top-color: var(--cyan-glow);
+  animation: spin 2s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.scan-line {
+  position: absolute; left: 10%; right: 10%; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cyan-glow), transparent);
+  animation: scanMove 2s ease-in-out infinite; opacity: 0.6;
+}
+@keyframes scanMove { 0%,100%{top:20%}50%{top:80%} }
+.scan-text { font-family: var(--font-mono); font-size: 12px; color: var(--cyan-glow); text-align: center; position: relative; z-index: 2; }
+.scan-progress-bar { width: 80%; max-width: 260px; height: 4px; background: rgba(125,211,252,0.1); border-radius: 2px; margin: 16px auto; overflow: hidden; }
+.scan-progress-fill { height: 100%; width: 0%; background: var(--cyan-glow); border-radius: 2px; transition: width 0.1s; }
+.data-fragment {
+  position: absolute; font-family: var(--font-mono); font-size: 10px;
+  color: rgba(125,211,252,0.4); animation: floatData 4s ease-in-out infinite;
+}
+@keyframes floatData { 0%,100%{transform:translateY(0) rotate(0deg);opacity:0.3} 50%{transform:translateY(-10px) rotate(5deg);opacity:0.6} }
+
+/* Profile Card */
+.profile-grid { margin: 16px 0; }
+.profile-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid rgba(125,211,252,0.06); font-size: 13px; }
+.profile-row .label { color: var(--silver-400); font-family: var(--font-mono); min-width: 70px; flex-shrink: 0; }
+.profile-row .value { color: var(--silver-100); text-align: right; }
+.profile-row .highlight-warn { color: var(--gold); }
+.profile-row .highlight-cyan { color: var(--cyan-glow); }
+.profile-row .note { font-size: 11px; color: var(--silver-400); }
+.badge-success { background: rgba(74,222,128,0.15); color: var(--success); padding: 2px 10px; border-radius: 20px; font-size: 11px; font-family: var(--font-mono); }
+.card-footer { margin-top: 16px; text-align: center; }
+.card-footer p { margin: 4px 0; }
+.welcome-text { color: var(--cyan-glow); font-size: 22px; margin: 12px 0 !important; }
+#profile-card { opacity: 0; transform: translateY(30px); transition: all 0.6s ease; }
+#profile-card.visible { opacity: 1; transform: translateY(0); }
+#profile-card .btn-primary { margin-top: 20px; width: 100%; }
+
+/* Briefing */
+.avatar-wrapper {
+  width: 120px; height: 120px; border-radius: 50%; margin: 16px auto;
+  position: relative; cursor: pointer;
+}
+.avatar-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+.avatar-ring {
+  position: absolute; inset: -4px; border-radius: 50%;
+  border: 2px solid transparent; border-top-color: var(--cyan-glow); border-right-color: var(--purple-glow);
+  animation: spin 3s linear infinite;
+}
+.avatar-scan {
+  position: absolute; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(125,211,252,0.4), transparent);
+  animation: scanMove 3s ease-in-out infinite; opacity: 0.5;
+}
+.briefing-text { min-height: 200px; margin: 20px 0; line-height: 2; }
+.briefing-text p { margin: 4px 0; opacity: 0; }
+.briefing-text p.shown { animation: fadeIn 0.4s ease forwards; }
+
+/* Level Header */
+.level-header { text-align: center; margin-bottom: 24px; }
+.level-num { font-size: 11px; color: var(--cyan-dim); display: block; margin-bottom: 4px; }
+.level-title { font-size: 26px; color: var(--silver-100); margin: 4px 0; }
+.level-sub { font-size: 11px; color: var(--silver-400); display: block; margin-top: 4px; }
+
+/* Level 1 Canvas */
+.level1-starfield { width: 100%; height: 280px; border-radius: var(--card-radius); background: rgba(5,8,15,0.6); border: 1px solid rgba(125,211,252,0.08); display: block; }
+.level-question { margin: 20px 0; font-size: 14px; line-height: 1.8; }
+.level-input { display: flex; gap: 12px; align-items: center; justify-content: center; margin: 16px 0; }
+.level-input input { max-width: 180px; font-size: 18px; letter-spacing: 4px; }
+.level-input .btn-primary { min-width: auto; padding: 0 20px; }
+
+/* Options */
+.options-grid { display: flex; flex-direction: column; gap: 10px; margin: 20px 0; }
+.option-btn {
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+  background: rgba(15,21,40,0.5); border: 1px solid rgba(125,211,252,0.12);
+  border-radius: 12px; cursor: pointer; transition: all 0.3s; color: var(--silver-200);
+  font-family: var(--font-cn-body); font-size: 15px; text-align: left;
+}
+.option-btn:active { transform: scale(0.98); }
+.option-btn .option-label { font-family: var(--font-display); font-size: 14px; color: var(--cyan-dim); min-width: 24px; }
+.option-btn.correct { border-color: var(--success); background: rgba(74,222,128,0.1); box-shadow: 0 0 15px rgba(74,222,128,0.1); }
+.option-btn.wrong { border-color: var(--error); background: rgba(248,113,113,0.1); }
+.option-btn.disabled { pointer-events: none; opacity: 0.6; }
+
+/* Result Card */
+.result-card { margin-top: 20px; opacity: 0; transform: translateY(20px); transition: all 0.5s; }
+.result-card.visible { opacity: 1; transform: translateY(0); }
+.result-card .medal-text { color: var(--gold); font-size: 13px; margin-top: 12px; }
+.result-card .btn-primary { width: 100%; margin-top: 16px; }
+
+/* Matching (Level 3) */
+.matching-area { display: flex; flex-direction: column; gap: 20px; position: relative; }
+.match-column { display: flex; flex-direction: column; gap: 8px; }
+.match-item {
+  padding: 10px 14px; background: rgba(15,21,40,0.5);
+  border: 1px solid rgba(125,211,252,0.12); border-radius: 10px;
+  cursor: pointer; transition: all 0.3s; font-size: 13px;
+}
+.match-item.selected { border-color: var(--cyan-glow); box-shadow: 0 0 10px rgba(125,211,252,0.1); }
+.match-item.paired { border-color: rgba(125,211,252,0.3); background: rgba(56,189,248,0.08); }
+.match-item.correct-line { border-color: var(--success); }
+.match-item.wrong-line { border-color: var(--error); }
+.pair-indicator { font-family: var(--font-mono); font-size: 11px; color: var(--cyan-dim); margin-left: 8px; }
+.match-divider { text-align: center; color: var(--silver-400); font-size: 12px; font-family: var(--font-label); }
+
+/* Minigame */
+.minigame-canvas { width: 100%; height: 400px; border-radius: var(--card-radius); background: rgba(5,8,15,0.8); border: 1px solid rgba(125,211,252,0.08); display: block; touch-action: none; }
+.game-hud { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 14px; color: var(--cyan-glow); margin-bottom: 8px; }
+
+/* Alert Card */
+.alert-card { text-align: center; }
+.alert-tag { font-size: 12px; color: var(--error); margin-bottom: 8px; }
+.alert-title { font-size: 22px; color: var(--silver-100); margin: 8px 0; }
+.alert-desc { color: var(--silver-300); margin-bottom: 8px; }
+.alert-detail { font-size: 12px; color: var(--silver-400); margin-bottom: 20px; }
+
+/* Merge */
+.merge-container { text-align: center; min-height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.merge-medals { display: flex; gap: 16px; font-size: 32px; margin: 20px 0; }
+.merge-medals .merge-medal { transition: all 0.8s cubic-bezier(0.34,1.56,0.64,1); }
+.merge-star { font-size: 64px; opacity: 0; transform: scale(0); transition: all 0.8s cubic-bezier(0.34,1.56,0.64,1); }
+.merge-star.visible { opacity: 1; transform: scale(1); }
+.merge-title { color: var(--gold); margin: 12px 0; }
+.merge-stats { font-family: var(--font-mono); font-size: 13px; color: var(--silver-300); margin: 16px 0; line-height: 2; }
+.fake-progress { width: 100%; max-width: 300px; height: 20px; background: rgba(125,211,252,0.1); border-radius: 10px; overflow: hidden; margin: 16px auto; }
+.fake-progress-fill { height: 100%; background: linear-gradient(90deg, var(--cyan-deep), var(--cyan-glow)); border-radius: 10px; transition: width 0.3s; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--silver-100); }
+
+/* Certificate */
+.certificate {
+  text-align: center; padding: 30px 20px;
+  background: linear-gradient(180deg, rgba(15,21,40,0.8), rgba(10,14,26,0.9));
+  border: 1px solid rgba(251,191,36,0.2);
+}
+.cert-corner { position: absolute; color: var(--gold-glow); font-size: 14px; opacity: 0.4; }
+.cert-tag { font-size: 10px; color: var(--silver-400); margin-bottom: 12px; }
+.cert-title-en { font-size: 28px; font-weight: 900; color: var(--gold); letter-spacing: 0.12em; text-shadow: 0 0 20px rgba(251,191,36,0.3); margin: 8px 0; }
+.cert-title-cn { font-size: 20px; color: var(--gold-glow); margin-bottom: 20px; }
+.cert-body { text-align: left; font-size: 14px; line-height: 1.8; }
+.cert-name { font-size: 22px; color: var(--cyan-glow); margin: 8px 0; text-align: center; }
+.cert-section { font-size: 10px; color: var(--silver-400); margin: 16px 0 8px; }
+.cert-award { color: var(--gold); text-align: center; font-size: 16px; margin: 8px 0; }
+.cert-medals { list-style: none; }
+.cert-medals li { padding: 4px 0; font-size: 13px; }
+.cert-data { list-style: none; font-size: 12px; color: var(--silver-300); }
+.cert-data li { padding: 3px 0; }
+.cert-comment { color: var(--silver-200); margin: 16px 0; font-style: italic; text-align: center; }
+.cert-footer { margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(251,191,36,0.15); font-size: 13px; color: var(--silver-400); }
+.cert-footer p { margin: 2px 0; }
+.cert-issuer { cursor: pointer; }
+.cert-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; justify-content: center; }
+.cert-actions .btn-ghost { font-size: 13px; padding: 0 14px; height: 36px; }
+.cert-bottom-links { margin-top: 20px; font-size: 12px; color: var(--silver-400); }
+.cert-bottom-links a { color: var(--cyan-dim); cursor: pointer; text-decoration: none; }
+
+/* Cake */
+.cake-container { text-align: center; margin: 20px 0; }
+.cake { position: relative; display: inline-block; }
+.cake-layer { margin: 0 auto; border-radius: 12px; position: relative; }
+.cake-layer-1 { width: 200px; height: 50px; background: linear-gradient(135deg, #1e3a5f, #2d1b69); border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }
+.cake-layer-2 { width: 160px; height: 45px; background: linear-gradient(135deg, #2d4a7a, #3d2b79); margin: 0 auto; }
+.cake-layer-3 { width: 120px; height: 40px; background: linear-gradient(135deg, #3d5a8a, #4d3b89); margin: 0 auto; border-top-left-radius: 12px; border-top-right-radius: 12px; }
+.cake-text { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); color: var(--gold-glow); font-size: 16px; white-space: nowrap; }
+.candles-row { display: flex; justify-content: center; gap: 8px; margin-bottom: -5px; position: relative; z-index: 2; }
+.candle { width: 6px; height: 30px; background: linear-gradient(to top, #e0e0e0, #fff); border-radius: 2px; position: relative; }
+.candle-flame {
+  position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+  width: 10px; height: 14px;
+  background: radial-gradient(ellipse at center bottom, #fbbf24, #f97316, transparent);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  animation: flame-flicker 0.3s ease-in-out infinite alternate;
+  box-shadow: 0 0 8px rgba(251,191,36,0.6), 0 0 16px rgba(251,191,36,0.3);
+  transition: all 0.3s;
+}
+.candle-flame.out { opacity: 0; transform: translateX(-50%) scale(0); }
+@keyframes flame-flicker { 0%{transform:translateX(-50%) scaleX(1) rotate(-3deg)}100%{transform:translateX(-50%) scaleX(0.85) rotate(3deg)} }
+.candle-smoke {
+  position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+  width: 4px; height: 20px;
+  background: linear-gradient(to top, rgba(200,200,200,0.3), transparent);
+  border-radius: 50%; animation: smoke-rise 1.5s ease forwards;
+}
+@keyframes smoke-rise { 0%{opacity:0.5;top:-20px}100%{opacity:0;top:-60px} }
+
+/* Blessing image */
+.blessing-image-wrapper {
+  width: 100%; max-width: 430px; margin: 20px auto;
+  border-radius: 16px; overflow: hidden; opacity: 0; transform: scale(0.95);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+  box-shadow: 0 0 30px rgba(251,191,36,0.15); border: 1px solid rgba(251,191,36,0.2);
+}
+.blessing-image-wrapper.visible { opacity: 1; transform: scale(1); }
+.blessing-img { width: 100%; height: auto; display: block; }
+
+/* Fireworks scene */
+#scene-fireworks .scene-content { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 60px; }
+
+/* Final scene */
+.final-header-en { font-size: 28px; font-weight: 900; color: var(--silver-100); text-align: center; letter-spacing: 0.12em; text-shadow: 0 0 30px rgba(125,211,252,0.2); margin: 8px 0; }
+.final-header-cn { font-size: 22px; color: var(--cyan-glow); text-align: center; margin-bottom: 24px; }
+.final-texts { margin: 20px 0; line-height: 2; }
+.final-group { margin-bottom: 20px; opacity: 0; transition: opacity 0.5s; }
+.final-group.shown { opacity: 1; }
+.climax-text { font-family: var(--font-cn-title); font-size: 28px; color: var(--gold); text-shadow: 0 0 30px rgba(251,191,36,0.4); cursor: pointer; display: inline; }
+.signature-text { color: var(--silver-400); font-size: 14px; }
+
+/* Map */
+.china-map-container { margin: 30px auto; text-align: center; opacity: 0; transition: opacity 1s; }
+.china-map-container.visible { opacity: 1; }
+.china-map { width: 100%; max-width: 350px; }
+.city-label { font-family: var(--font-label); font-size: 10px; fill: var(--silver-300); text-anchor: middle; }
+.pulse-dot { animation: pulse 2s ease-in-out infinite; }
+.delivery-status { margin-top: 16px; text-align: center; font-size: 13px; line-height: 2; }
+
+/* Wish */
+.wish-card { text-align: center; }
+.wish-header { margin-bottom: 16px; }
+.wish-icon { font-size: 40px; display: block; margin-bottom: 8px; }
+.wish-info { margin: 16px 0; text-align: left; }
+.wish-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; color: var(--silver-300); border-bottom: 1px solid rgba(125,211,252,0.06); }
+.wish-desc { font-size: 14px; margin: 16px 0; line-height: 1.8; color: var(--silver-200); text-align: left; }
+.wish-textarea {
+  width: 100% !important; max-width: 100% !important; height: 100px !important;
+  font-size: 15px !important; letter-spacing: 1px !important; text-align: left !important;
+  padding: 12px !important; resize: none; font-family: var(--font-cn-body) !important;
+  color: var(--silver-100) !important; line-height: 1.6;
+}
+.wish-result { margin-top: 20px; text-align: center; }
+.wish-code { font-family: var(--font-mono); color: var(--gold); font-size: 14px; margin: 8px 0; }
+.ending-text { margin-top: 40px; text-align: center; line-height: 2.2; }
+
+.easter-egg-trigger {
+  font-size: 10px; color: rgba(139,146,168,0.3); text-align: center;
+  cursor: pointer; margin-top: 60px; opacity: 0; animation: subtle-fadein 2s ease 5s forwards;
+}
+@keyframes subtle-fadein { to { opacity: 1; } }
+
+/* Floating comment */
+.floating-comment {
+  position: fixed; top: 88px; right: -300px;
+  background: rgba(15,21,40,0.8); backdrop-filter: blur(10px);
+  border: 1px solid rgba(125,211,252,0.15); border-radius: 20px;
+  padding: 6px 16px; font-size: 13px; color: var(--silver-200);
+  white-space: nowrap; z-index: 48; animation: float-comment 4s ease-in-out forwards;
+}
+
+/* Toast */
+.toast-container { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 100; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.toast {
+  background: rgba(15,21,40,0.9); backdrop-filter: blur(10px);
+  border: 1px solid rgba(125,211,252,0.2); border-radius: 12px;
+  padding: 10px 20px; font-size: 13px; color: var(--silver-100);
+  white-space: nowrap; max-width: 90vw; overflow: hidden; text-overflow: ellipsis;
+  animation: toastIn 0.3s ease;
+}
+@keyframes toastIn { from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)} }
+
+/* Resume overlay */
+.resume-overlay {
+  position: fixed; inset: 0; z-index: 200; background: rgba(5,8,15,0.9);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.resume-card { text-align: center; max-width: 340px; }
+.resume-icon { font-size: 40px; margin-bottom: 12px; }
+.resume-title { font-size: 18px; color: var(--silver-100); margin: 12px 0; }
+.resume-detail { font-size: 12px; color: var(--silver-300); margin: 8px 0 20px; }
+.resume-actions { display: flex; flex-direction: column; gap: 10px; }
+
+/* Easter Egg Card */
+.egg-overlay {
+  position: fixed; inset: 0; z-index: 150; background: rgba(5,8,15,0.85);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+.egg-card { text-align: center; max-width: 320px; }
+.egg-card .egg-icon { font-size: 40px; margin-bottom: 12px; }
+.egg-card .egg-title { color: var(--gold); font-size: 16px; margin-bottom: 12px; }
+.egg-card .egg-content { font-size: 14px; color: var(--silver-200); line-height: 1.8; white-space: pre-line; }
+
+/* Transition overlay */
+.transition-overlay {
+  position: fixed; inset: 0; z-index: 30; pointer-events: none;
+  background: transparent; transition: background 0.15s;
+}
+.transition-overlay.flash-white { background: rgba(240,241,245,0.6); }
+.transition-overlay.flash-gold { background: rgba(251,191,36,0.3); }
+.transition-overlay.flash-purple { background: rgba(124,58,237,0.2); }
+
+/* Loading text */
+.loading-text-container {
+  position: fixed; bottom: 60px; left: 20px; right: 20px;
+  z-index: 35; font-family: var(--font-mono); font-size: 13px; color: var(--cyan-dim);
+}
+.loading-line { opacity: 0; margin: 4px 0; transition: opacity 0.3s; }
+.loading-line.shown { opacity: 1; }
+
+/* Hidden level */
+.hidden-badge { font-size: 48px; display: block; text-align: center; margin: 16px 0; }
+
+/* Btn group */
+.btn-group { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.btn-group .btn-primary, .btn-group .btn-ghost { width: 100%; }
+
+@media (min-width: 600px) {
+  .scene-content { max-width: 600px; }
+  .scene-hero { font-size: 44px; }
+  .level-title { font-size: 34px; }
+  .cert-title-en { font-size: 36px; }
+  .final-header-en { font-size: 36px; }
+  .climax-text { font-size: 36px; }
+}
+</style>
+</head>
+<body>
+<canvas id="canvas-bg" class="canvas-layer"></canvas>
+<canvas id="canvas-fx" class="canvas-layer"></canvas>
+<div class="transition-overlay" id="transition-overlay"></div>
+
+<!-- Status Bar -->
+<header class="status-bar" id="status-bar">
+  <span class="font-mono" id="signal-strength">📡 SIGNAL：██████████ 98%</span>
+  <span class="font-mono">XI'AN → RIZHAO</span>
+</header>
+
+<!-- Progress Bar -->
+<div class="progress-bar-container" id="progress-bar">
+  <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+  <span class="progress-label" id="progress-label">LV 0/5</span>
+  <div class="medals-row">
+    <span class="medal" data-medal="1">🔭</span>
+    <span class="medal" data-medal="2">🌌</span>
+    <span class="medal" data-medal="3">💻</span>
+    <span class="medal" data-medal="4">🧠</span>
+    <span class="medal" data-medal="5">🏆</span>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Resume Overlay -->
+<div class="resume-overlay" id="resume-overlay" style="display:none;">
+  <div class="card card-aurora resume-card">
+    <p class="resume-icon">📡</p>
+    <p class="font-label" style="color:var(--cyan-glow);font-size:11px;">SIGNAL · INTERRUPTED</p>
+    <p class="resume-title font-cn-title">检测到未完成的星际任务</p>
+    <p class="resume-detail font-mono" id="resume-detail">LAST · LEVEL 3</p>
+    <div class="resume-actions">
+      <button class="btn-primary" id="btn-resume">继续任务</button>
+      <button class="btn-ghost" id="btn-restart">重新开始</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCENES ==================== -->
+
+<!-- Scene: Password -->
+<div class="scene" id="scene-password">
+  <div class="scene-content" style="padding-top:60px;">
+    <div class="scene-header" id="pw-header" style="opacity:0;">
+      <p class="font-label scene-tag">// ENCRYPTED TRANSMISSION</p>
+      <h1 class="font-display scene-hero">STAR MISSION</h1>
+      <p class="font-label scene-subtag">CLEARANCE REQUIRED</p>
+    </div>
+    <div class="typewriter-area" id="pw-typewriter"></div>
+    <div class="password-area" id="pw-area">
+      <p class="font-label" style="font-size:11px;color:var(--cyan-dim);">ENTER 4-DIGIT KEY</p>
+      <p class="prompt-text">请输入 4 位星际通行密码</p>
+      <input type="tel" inputmode="numeric" maxlength="4" pattern="[0-9]*" class="input-terminal breathing" id="password-input" autocomplete="off" style="-webkit-text-security:disc;">
+      <p class="error-text" id="password-error"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Scene: DNA -->
+<div class="scene" id="scene-dna">
+  <div class="scene-content" style="padding-top:60px;">
+    <p class="font-label" style="font-size:11px;color:var(--silver-400);text-align:center;">// BIOMETRIC AUTHENTICATION</p>
+    <h2 class="font-display" style="font-size:22px;color:var(--silver-100);letter-spacing:0.1em;text-align:center;margin:8px 0;">DNA SCAN</h2>
+    <div id="dna-instructions" style="text-align:center;margin:16px 0;font-size:14px;line-height:1.8;color:var(--silver-200);"></div>
+    <div class="scan-area" id="scan-area">
+      <div class="scan-ring"></div>
+      <div class="scan-line"></div>
+      <div class="scan-text" id="scan-text">AWAITING INPUT</div>
+      <div class="data-fragment" style="top:10%;left:-20%;">A7F3</div>
+      <div class="data-fragment" style="top:30%;right:-25%;animation-delay:1s;">9D2E</div>
+      <div class="data-fragment" style="bottom:20%;left:-15%;animation-delay:2s;">C1B8</div>
+      <div class="data-fragment" style="bottom:10%;right:-20%;animation-delay:0.5s;">E5F0</div>
+    </div>
+    <div class="scan-progress-bar"><div class="scan-progress-fill" id="scan-progress-fill"></div></div>
+    <div id="profile-card" class="card card-aurora" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <span class="badge-success">✅ AUTHENTICATED</span>
+        <span class="font-label" style="font-size:10px;color:var(--silver-400);">BIOMETRIC PROFILE</span>
+      </div>
+      <div class="profile-grid font-mono" id="profile-rows">
+        <div class="profile-row"><span class="label">NAME</span><span class="value">孙鸣泽</span></div>
+        <div class="profile-row"><span class="label">ALIAS</span><span class="value">乙鸣</span></div>
+        <div class="profile-row"><span class="label">AGE</span><span class="value">9</span></div>
+        <div class="profile-row"><span class="label">HEIGHT</span><span class="value">正在疯狂生长中 📈</span></div>
+        <div class="profile-row"><span class="label">BRAIN</span><span class="value highlight-warn">超标 200%（危险级别⚠）</span></div>
+        <div class="profile-row"><span class="label">CHARM</span><span class="value">99/100<span class="note">（扣1分怕你骄傲）</span></span></div>
+        <div class="profile-row"><span class="label">DNA</span><span class="value">与发送者（老哥）极高</span></div>
+        <div class="profile-row"><span class="label">REL</span><span class="value highlight-cyan">亲弟弟 · 唯一认证版</span></div>
+      </div>
+      <div class="card-footer">
+        <p>结论：身份无误，允许进入。</p>
+        <p class="welcome-text font-cn-title">欢迎，乙鸣。</p>
+        <p>你哥从约1000公里外给你发了一项任务。</p>
+        <p>接不接？</p>
+      </div>
+      <button class="btn-primary" id="btn-accept">🚀 接受任务</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scene: Briefing -->
+<div class="scene" id="scene-briefing">
+  <div class="scene-content" style="padding-top:50px;">
+    <p class="font-label" style="font-size:11px;color:var(--silver-400);text-align:center;">// INCOMING TRANSMISSION</p>
+    <h2 class="font-display" style="font-size:18px;letter-spacing:0.1em;color:var(--cyan-glow);text-align:center;margin:8px 0;">MISSION BRIEFING</h2>
+    <div class="avatar-wrapper" id="avatar-wrapper">
+      <div class="avatar-ring"></div>
+      <div class="avatar-scan"></div>
+      <div style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,#1a2a4a,#2a1a4a);display:flex;align-items:center;justify-content:center;font-size:40px;">👨‍💻</div>
+    </div>
+    <p class="font-label" style="font-size:11px;text-align:center;margin-top:8px;color:var(--silver-300);">SENDER · 老哥</p>
+    <div class="briefing-text" id="briefing-text"></div>
+    <div style="text-align:center;"><button class="btn-primary" id="btn-start-mission" style="display:none;">⚡ 开干</button></div>
+  </div>
+</div>
+
+<!-- Scene: Level 1 -->
+<div class="scene" id="scene-level1">
+  <div class="scene-content" style="padding-top:80px;">
+    <div class="level-header">
+      <span class="font-label level-num">LEVEL 01</span>
+      <h2 class="font-cn-title level-title">星图解密</h2>
+      <p class="font-label level-sub">STAR MAP · DECODE</p>
+    </div>
+    <canvas id="level1-canvas" class="level1-starfield" width="400" height="280"></canvas>
+    <div class="level-question" id="l1-question">
+      <p>星际信号中截获了一段加密图形。</p>
+      <p>仔细看那些最亮的星星——</p>
+      <p>它们连起来是什么？</p>
+    </div>
+    <div class="level-input">
+      <input type="text" class="input-terminal" id="l1-input" maxlength="4" style="max-width:120px;letter-spacing:4px;font-size:22px;" placeholder="?">
+      <button class="btn-primary" id="l1-submit">确认</button>
+    </div>
+    <p class="error-text" id="l1-error" style="text-align:center;"></p>
+    <div class="result-card card" id="l1-result"></div>
+  </div>
+</div>
+
+<!-- Scene: Level 2 -->
+<div class="scene" id="scene-level2">
+  <div class="scene-content" style="padding-top:80px;">
+    <div class="level-header">
+      <span class="font-label level-num">LEVEL 02</span>
+      <h2 class="font-cn-title level-title">宇宙知识</h2>
+      <p class="font-label level-sub">COSMIC QUIZ</p>
+    </div>
+    <div class="level-question">
+      <p>国际空间站上的宇航员，</p>
+      <p>一天能看到几次日出？</p>
+    </div>
+    <div class="options-grid" id="l2-options">
+      <button class="option-btn" data-value="A"><span class="option-label font-display">A</span><span class="option-text">1次，和我们一样</span></button>
+      <button class="option-btn" data-value="B"><span class="option-label font-display">B</span><span class="option-text">2次</span></button>
+      <button class="option-btn" data-value="C"><span class="option-label font-display">C</span><span class="option-text">16次</span></button>
+      <button class="option-btn" data-value="D"><span class="option-label font-display">D</span><span class="option-text">24次</span></button>
+    </div>
+    <p class="error-text" id="l2-error" style="text-align:center;"></p>
+    <div class="result-card card" id="l2-result"></div>
+  </div>
+</div>
+
+<!-- Scene: Minigame -->
+<div class="scene" id="scene-minigame">
+  <div class="scene-content" style="padding-top:80px;">
+    <div id="minigame-alert" class="alert-card card">
+      <p class="font-label alert-tag">⚠ POWER LOW</p>
+      <p class="alert-title font-cn-title">飞船能量不够了！</p>
+      <p class="alert-desc">收集星际能量才能继续。</p>
+      <p class="alert-detail font-mono">DURATION · 15S</p>
+      <button class="btn-primary" id="btn-start-game">🚀 开始</button>
+    </div>
+    <div id="minigame-play" style="display:none;">
+      <div class="game-hud">
+        <span id="game-timer">15s</span>
+        <span id="game-score-display">⭐ 0</span>
+      </div>
+      <canvas id="minigame-canvas" class="minigame-canvas" width="400" height="400"></canvas>
+    </div>
+    <div class="result-card card" id="minigame-result" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- Scene: Level 3 -->
+<div class="scene" id="scene-level3">
+  <div class="scene-content" style="padding-top:80px;">
+    <div class="level-header">
+      <span class="font-label level-num">LEVEL 03</span>
+      <h2 class="font-cn-title level-title">代码连线</h2>
+      <p class="font-label level-sub">CODE · MATCH</p>
+    </div>
+    <div class="matching-area" id="matching-area">
+      <div class="match-column" id="match-codes">
+        <div class="match-item font-mono" data-id="code1">print("你好")</div>
+        <div class="match-item font-mono" data-id="code2">if (下雨) { 带伞 }</div>
+        <div class="match-item font-mono" data-id="code3">while (想你) { 打电话 }</div>
+        <div class="match-item font-mono" data-id="code4">age = 9</div>
+      </div>
+      <div class="match-divider">—— 连接对应含义 ——</div>
+      <div class="match-column" id="match-meanings">
+        <div class="match-item" data-id="A">年龄等于9</div>
+        <div class="match-item" data-id="B">让电脑说"你好"</div>
+        <div class="match-item" data-id="C">只要想你就给你打电话</div>
+        <div class="match-item" data-id="D">如果下雨就带伞</div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:16px;"><button class="btn-primary" id="l3-submit" style="display:none;">✅ 提交</button></div>
+    <p class="error-text" id="l3-error" style="text-align:center;"></p>
+    <div class="result-card card" id="l3-result"></div>
+  </div>
+</div>
+
+<!-- Scene: Level 4 -->
+<div class="scene" id="scene-level4">
+  <div class="scene-content" style="padding-top:80px;">
+    <div class="level-header">
+      <span class="font-label level-num">LEVEL 04</span>
+      <h2 class="font-cn-title level-title">脑筋急转弯</h2>
+      <p class="font-label level-sub">LOGIC TRAP</p>
+    </div>
+    <div class="level-question">
+      <p>一栋楼有10层。</p>
+      <p>你从1楼走到2楼要走10级台阶。</p>
+      <p>问：从1楼走到10楼，一共要走多少级台阶？</p>
+    </div>
+    <div class="options-grid" id="l4-options">
+      <button class="option-btn" data-value="A"><span class="option-label font-display">A</span><span class="option-text">100级</span></button>
+      <button class="option-btn" data-value="B"><span class="option-label font-display">B</span><span class="option-text">90级</span></button>
+      <button class="option-btn" data-value="C"><span class="option-label font-display">C</span><span class="option-text">110级</span></button>
+      <button class="option-btn" data-value="D"><span class="option-label font-display">D</span><span class="option-text">10级</span></button>
+    </div>
+    <p class="error-text" id="l4-error" style="text-align:center;"></p>
+    <div class="result-card card" id="l4-result"></div>
+  </div>
+</div>
+
+<!-- Scene: Level 5 -->
+<div class="scene" id="scene-level5">
+  <div class="scene-content" style="padding-top:80px;">
+    <div class="level-header">
+      <span class="font-label level-num" style="color:var(--purple-glow);">FINAL BOSS</span>
+      <h2 class="font-cn-title level-title">终极挑战</h2>
+      <p class="font-label level-sub">ULTIMATE · CHALLENGE</p>
+    </div>
+    <div class="level-question">
+      <p>最终题。注意看。</p>
+      <p style="margin-top:12px;">有5个人参加赛跑。</p>
+      <p>你超过了第2名。</p>
+      <p>你现在是第几名？</p>
+    </div>
+    <div class="options-grid" id="l5-options">
+      <button class="option-btn" data-value="A"><span class="option-label font-display">A</span><span class="option-text">第1名</span></button>
+      <button class="option-btn" data-value="B"><span class="option-label font-display">B</span><span class="option-text">第2名</span></button>
+      <button class="option-btn" data-value="C"><span class="option-label font-display">C</span><span class="option-text">第3名</span></button>
+      <button class="option-btn" data-value="D"><span class="option-label font-display">D</span><span class="option-text">取决于速度</span></button>
+    </div>
+    <p class="error-text" id="l5-error" style="text-align:center;"></p>
+    <div class="result-card card" id="l5-result"></div>
+  </div>
+</div>
+
+<!-- Scene: Merge -->
+<div class="scene" id="scene-merge">
+  <div class="scene-content" style="padding-top:80px;">
+    <div class="merge-container" id="merge-container"></div>
+  </div>
+</div>
+
+<!-- Scene: Hidden -->
+<div class="scene" id="scene-hidden">
+  <div class="scene-content" style="padding-top:80px;">
+    <div class="level-header">
+      <span class="font-label level-num" style="color:var(--gold);">??? · HIDDEN</span>
+      <h2 class="font-cn-title level-title">？？？</h2>
+      <p class="font-label level-sub">SECRET · STAGE</p>
+    </div>
+    <div class="level-question" style="line-height:2;">
+      <p>最后一题。没有标准答案。</p>
+      <p>但只有真正聪明的人选得对。</p>
+      <p style="margin-top:12px;">一个人走到岔路口。</p>
+      <p>左边路牌写着"天才走这边"。</p>
+      <p>右边路牌写着"这边也是天才走的"。</p>
+      <p>地上有一行很小的字：</p>
+      <p style="font-size:11px;color:var(--silver-400);">"真正的天才会注意到这行字"</p>
+      <p style="margin-top:12px;">天才应该走哪边？</p>
+    </div>
+    <div class="options-grid" id="hidden-options">
+      <button class="option-btn" data-value="A"><span class="option-label font-display">A</span><span class="option-text">左边</span></button>
+      <button class="option-btn" data-value="B"><span class="option-label font-display">B</span><span class="option-text">右边</span></button>
+      <button class="option-btn" data-value="C"><span class="option-label font-display">C</span><span class="option-text">都不走——注意到地上那行字就已经证明是天才了</span></button>
+      <button class="option-btn" data-value="D"><span class="option-label font-display">D</span><span class="option-text">两边都走</span></button>
+    </div>
+    <p class="error-text" id="hidden-error" style="text-align:center;"></p>
+    <div class="result-card card" id="hidden-result"></div>
+  </div>
+</div>
+
+<!-- Scene: Certificate -->
+<div class="scene" id="scene-certificate">
+  <div class="scene-content" style="padding-top:50px;">
+    <div class="certificate card-aurora" id="certificate-card">
+      <p class="font-label cert-tag">SSS · CLEARANCE</p>
+      <h1 class="font-display cert-title-en">STAR EXPLORER</h1>
+      <h2 class="font-cn-title cert-title-cn">星际探险家认证证书</h2>
+      <div class="cert-body">
+        <p>兹认证：</p>
+        <p class="cert-name font-cn-title">孙鸣泽 同学</p>
+        <p>于2026年6月2日（九岁生日当天）</p>
+        <p>成功突破全部星际防火墙。</p>
+        <p class="font-label cert-section">// AWARDED TITLE</p>
+        <p class="cert-award">⭐ 星际探险家 · 一级认证 ⭐</p>
+        <p class="font-label cert-section">// MEDALS</p>
+        <ul class="cert-medals">
+          <li>🔭 星图解读者 · STAR READER</li>
+          <li>🌌 宇宙探索者 · COSMIC EXPLORER</li>
+          <li>💻 代码破译师 · CODE BREAKER</li>
+          <li>🧠 逻辑鬼才 · LOGIC GENIUS</li>
+          <li>🏆 终极破译者 · ULTIMATE DECODER</li>
+          <li id="hidden-medal-line">❓ ???（你错过了一个秘密）</li>
+        </ul>
+        <p class="font-label cert-section">// MISSION DATA</p>
+        <ul class="cert-data font-mono">
+          <li>TOTAL TIME · <span id="cert-time">--</span></li>
+          <li>WRONG · <span id="cert-wrong">0</span> 次</li>
+          <li>ENERGY · <span id="cert-energy">0</span> 颗</li>
+        </ul>
+        <p class="cert-comment" id="cert-comment"></p>
+        <div class="cert-footer">
+          <p class="cert-issuer" id="cert-issuer">颁发机构：西安交通大学 · 老哥星际研究院</p>
+          <p>颁发人：你哥</p>
+          <p class="font-mono">DATE · 2026.06.02</p>
+        </div>
+      </div>
+      <div class="cert-actions">
+        <button class="btn-ghost" onclick="showToast('不管给谁，你哥都已经看到了 👀', 1500);setTimeout(()=>showToast('📸 长按证书截图保存',3000),1800);">📱 给老妈</button>
+        <button class="btn-ghost" onclick="showToast('不管给谁，你哥都已经看到了 👀', 1500);setTimeout(()=>showToast('📸 长按证书截图保存',3000),1800);">📱 给老爸</button>
+        <button class="btn-ghost" onclick="showToast('不管给谁，你哥都已经看到了 👀', 1500);setTimeout(()=>showToast('📸 长按证书截图保存',3000),1800);">📱 自己收着</button>
+        <button class="btn-ghost" onclick="showToast('不管给谁，你哥都已经看到了 👀', 1500);setTimeout(()=>showToast('📸 长按证书截图保存',3000),1800);">📱 给全世界</button>
+      </div>
+      <div style="text-align:center;margin-top:24px;"><button class="btn-primary" id="btn-to-cake">🎂 最后一站</button></div>
+      <div class="cert-bottom-links">
+        <a onclick="if(confirm('确定要重新挑战吗？所有进度将被清空。')){clearAllData();location.reload();}">想刷更好成绩？🔄 重新挑战</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scene: Cake -->
+<div class="scene" id="scene-cake">
+  <div class="scene-content" style="padding-top:60px;">
+    <div id="cake-text-area" style="text-align:center;margin-bottom:30px;line-height:2;"></div>
+    <div class="cake-container" id="cake-container">
+      <div class="candles-row" id="candles-row"></div>
+      <div class="cake">
+        <div class="cake-layer cake-layer-3"></div>
+        <div class="cake-layer cake-layer-2"></div>
+        <div class="cake-layer cake-layer-1"></div>
+        <div class="cake-text font-cn-title">乙鸣 9岁</div>
+      </div>
+    </div>
+    <p id="cake-instruction" style="text-align:center;color:var(--silver-400);font-size:13px;margin-top:20px;opacity:0;transition:opacity 0.5s;">👆 用手指划过蜡烛把火扇灭</p>
+    <div class="blessing-image-wrapper" id="blessing-image" style="display:none;">
+      <div style="width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#0a0e2a,#1a0e3a);display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;">
+        <p class="font-cn-title" style="font-size:28px;color:var(--gold);margin-bottom:12px;">🎂 生日快乐 🎂</p>
+        <p style="color:var(--gold-glow);font-size:18px;">孙鸣泽 · 9岁</p>
+        <p style="color:var(--silver-300);font-size:14px;margin-top:12px;">—— 来自你哥</p>
+      </div>
+    </div>
+    <div style="text-align:center;"><button class="btn-primary" id="btn-to-fireworks" style="display:none;">✨ 继续</button></div>
+  </div>
+</div>
+
+<!-- Scene: Fireworks -->
+<div class="scene" id="scene-fireworks">
+  <div class="scene-content">
+    <div style="text-align:center;"><button class="btn-primary" id="btn-after-fireworks" style="display:none;">📡 接收最终通讯</button></div>
+  </div>
+</div>
+
+<!-- Scene: Final -->
+<div class="scene" id="scene-final">
+  <div class="scene-content" style="padding-top:60px;">
+    <p class="font-label" style="font-size:12px;color:var(--cyan-dim);text-align:center;">// FINAL TRANSMISSION</p>
+    <h1 class="font-display final-header-en">FROM XI'AN</h1>
+    <h2 class="font-cn-title final-header-cn">📡 来自西安的最终通讯</h2>
+    <div class="final-texts" id="final-texts"></div>
+    <div class="china-map-container" id="china-map-container">
+      <svg class="china-map" viewBox="0 0 400 350">
+        <path class="map-outline" d="M180,30 L220,25 L260,35 L300,30 L330,45 L350,70 L360,100 L365,130 L355,155 L340,170 L350,190 L340,210 L350,230 L345,260 L330,280 L310,290 L290,285 L270,295 L250,310 L230,320 L210,325 L190,315 L170,300 L150,290 L130,280 L115,260 L105,240 L95,220 L80,200 L70,180 L60,155 L55,130 L60,105 L70,80 L85,60 L105,45 L130,35 L155,30 Z" stroke="rgba(240,241,245,0.12)" fill="none" stroke-width="1"/>
+        <circle cx="195" cy="180" r="5" fill="#38bdf8" class="pulse-dot"/>
+        <text x="195" y="200" class="city-label">XI'AN</text>
+        <circle cx="295" cy="160" r="5" fill="#fbbf24" class="pulse-dot"/>
+        <text x="295" y="180" class="city-label">RIZHAO</text>
+        <path id="arc-path" d="M195,180 Q245,120 295,160" stroke="#7dd3fc" stroke-width="2" fill="none" stroke-dasharray="200" stroke-dashoffset="200" opacity="0.8">
+          <animate attributeName="stroke-dashoffset" from="200" to="0" dur="2s" fill="freeze" begin="indefinite" id="arc-anim"/>
+        </path>
+        <circle r="4" fill="#fde68a" opacity="0">
+          <animateMotion dur="2s" fill="freeze" begin="indefinite" id="dot-anim">
+            <mpath href="#arc-path"/>
+          </animateMotion>
+          <animate attributeName="opacity" from="0" to="1" dur="0.1s" fill="freeze" begin="indefinite" id="dot-opacity-anim"/>
+        </circle>
+      </svg>
+      <div class="delivery-status">
+        <p class="font-label" style="color:var(--cyan-glow);">📍 XI'AN → RIZHAO</p>
+        <p class="font-mono" style="font-size:12px;color:var(--silver-300);">DISTANCE · ~1000 KM</p>
+        <p style="color:var(--success);">生日祝福：已送达 ✅</p>
+        <p>任务状态：圆满完成 🎯</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scene: Wish -->
+<div class="scene" id="scene-wish">
+  <div class="scene-content" style="padding-top:60px;">
+    <div id="wish-entry" style="text-align:center;min-height:200px;"></div>
+    <div class="wish-card card card-aurora" id="wish-card" style="display:none;">
+      <div class="wish-header">
+        <span class="wish-icon">🎁</span>
+        <p class="font-label" style="font-size:10px;color:var(--silver-400);">WISH · VOUCHER</p>
+        <h3 class="font-cn-title" style="font-size:20px;color:var(--silver-100);">生日愿望兑换卡</h3>
+      </div>
+      <div class="wish-info font-mono">
+        <div class="wish-row"><span>HOLDER</span><span>孙鸣泽（乙鸣）</span></div>
+        <div class="wish-row"><span>ISSUER</span><span>老哥</span></div>
+        <div class="wish-row"><span>VALID</span><span>FOREVER</span></div>
+      </div>
+      <p class="wish-desc">在下面写一个愿望，你哥尽力帮你实现。<br>什么都行——一个东西、一件事、一个约定。<br>写就完了。</p>
+      <textarea class="input-terminal wish-textarea" id="wish-input" placeholder="写你的愿望..." rows="3" maxlength="500"></textarea>
+      <button class="btn-primary" id="btn-send-wish" style="width:100%;margin-top:16px;">✨ 发送愿望</button>
+    </div>
+    <div id="wish-result-area" style="display:none;"></div>
+    <div class="ending-text" id="ending-text" style="display:none;"></div>
+    <p class="easter-egg-trigger" id="egg5-trigger">psst... 点这里 👀</p>
+  </div>
+</div>
+
+<script>
+// ==================== CONFIG ====================
+var CONFIG = { WORKER_URL: 'https://yiming-wish.tppvpnni.workers.dev/send' };
+
+// ==================== STATE ====================
+var STORAGE_KEY = 'starMission_yiming';
+var defaultState = {
+  currentScene: null, startTime: null, endTime: null,
+  wrongCount: 0, gameScore: 0, medalsEarned: [],
+  hiddenCompleted: false, hiddenSkipped: false,
+  eggsFound: [], wish: null, wishSent: false
+};
+
+function getState() {
+  try { var s = JSON.parse(localStorage.getItem(STORAGE_KEY)); return Object.assign({}, defaultState, s || {}); }
+  catch(e) { return Object.assign({}, defaultState); }
+}
+function setState(updates) {
+  var s = getState();
+  Object.assign(s, updates);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+}
+function saveProgress(sceneId) { setState({ currentScene: sceneId }); }
+function saveMedal(num) {
+  var s = getState();
+  if (s.medalsEarned.indexOf(num) === -1) { s.medalsEarned.push(num); setState({ medalsEarned: s.medalsEarned }); }
+}
+function incrementWrongCount() { var s = getState(); setState({ wrongCount: s.wrongCount + 1 }); }
+function saveEasterEgg(eggId) {
+  var s = getState();
+  if (s.eggsFound.indexOf(eggId) === -1) { s.eggsFound.push(eggId); setState({ eggsFound: s.eggsFound }); }
+}
+function clearAllData() { localStorage.removeItem(STORAGE_KEY); }
+function hasProgress() { return getState().currentScene !== null; }
+
+// ==================== UTILS ====================
+function showToast(text, duration) {
+  duration = duration || 2000;
+  var c = document.getElementById('toast-container');
+  var t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = text;
+  c.appendChild(t);
+  setTimeout(function(){ t.style.opacity = '0'; t.style.transition = 'opacity 0.3s'; setTimeout(function(){ t.remove(); }, 300); }, duration);
+}
+
+function typewrite(element, text, speed, callback) {
+  speed = speed || 60;
+  var i = 0;
+  element.innerHTML = '';
+  function tick() {
+    if (i < text.length) {
+      if (text.substring(i, i+8) === '<span cl') {
+        var end = text.indexOf('</span>', i);
+        if (end !== -1) { element.innerHTML += text.substring(i, end + 7); i = end + 7; }
+        else { element.innerHTML += text[i]; i++; }
+      } else { element.innerHTML += text[i]; i++; }
+      setTimeout(tick, speed);
+    } else { if (callback) callback(); }
+  }
+  tick();
+}
+
+function flashScreen(type, duration) {
+  var el = document.getElementById('transition-overlay');
+  el.className = 'transition-overlay flash-' + type;
+  setTimeout(function() { el.className = 'transition-overlay'; }, (duration || 0.3) * 1000);
+}
+
+function showFloatingComment(text) {
+  var c = document.createElement('div');
+  c.className = 'floating-comment';
+  c.textContent = text;
+  document.body.appendChild(c);
+  setTimeout(function() { c.remove(); }, 4500);
+}
+
+function showEasterEggCard(opts) {
+  var ov = document.createElement('div');
+  ov.className = 'egg-overlay';
+  ov.innerHTML = '<div class="card egg-card"><p class="egg-icon">' + opts.icon + '</p><p class="egg-title font-cn-title">' + opts.title + '</p><p class="egg-content">' + opts.content + '</p></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click', function() { ov.style.opacity = '0'; ov.style.transition = 'opacity 0.3s'; setTimeout(function() { ov.remove(); }, 300); });
+  setTimeout(function() { ov.style.opacity = '0'; ov.style.transition = 'opacity 0.3s'; setTimeout(function() { ov.remove(); }, 300); }, opts.duration || 3000);
+}
+
+function showLoadingText(lines, callback) {
+  var container = document.createElement('div');
+  container.className = 'loading-text-container';
+  lines.forEach(function(l) {
+    var p = document.createElement('p');
+    p.className = 'loading-line';
+    p.textContent = l;
+    container.appendChild(p);
+  });
+  document.body.appendChild(container);
+  var children = container.querySelectorAll('.loading-line');
+  children.forEach(function(c, i) {
+    setTimeout(function() { c.classList.add('shown'); }, i * 400);
+  });
+  setTimeout(function() {
+    container.style.opacity = '0'; container.style.transition = 'opacity 0.3s';
+    setTimeout(function() { container.remove(); if (callback) callback(); }, 300);
+  }, lines.length * 400 + 500);
+}
+
+function delay(ms) { return new Promise(function(resolve) { setTimeout(resolve, ms); }); }
+
+// ==================== CANVAS BG ====================
+var bgCanvas, bgCtx, fxCanvas, fxCtx;
+var bgStars = [], bgTwinklers = [], bgDrifters = [], nebulaOffscreen = null;
+var mouseX = -1, mouseY = -1, glowX = -1, glowY = -1;
+var bgLastFrame = 0;
+
+function initCanvas() {
+  bgCanvas = document.getElementById('canvas-bg');
+  fxCanvas = document.getElementById('canvas-fx');
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  function resize() {
+    var w = window.innerWidth, h = window.innerHeight;
+    bgCanvas.width = w * dpr; bgCanvas.height = h * dpr; bgCanvas.style.width = w + 'px'; bgCanvas.style.height = h + 'px';
+    fxCanvas.width = w * dpr; fxCanvas.height = h * dpr; fxCanvas.style.width = w + 'px'; fxCanvas.style.height = h + 'px';
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  bgCtx = bgCanvas.getContext('2d');
+  fxCtx = fxCanvas.getContext('2d');
+  bgCtx.scale(dpr, dpr);
+  fxCtx.scale(dpr, dpr);
+  window.bgCtx = bgCtx; window.fxCtx = fxCtx;
+
+  var w = window.innerWidth, h = window.innerHeight;
+  var isMobile = w < 600;
+  // L1 far stars
+  for (var i = 0; i < (isMobile ? 80 : 160); i++) {
+    bgStars.push({ x: Math.random() * w, y: Math.random() * h, r: 0.5 + Math.random() * 0.5, a: 0.2 + Math.random() * 0.3 });
+  }
+  // L2 twinklers
+  for (var i = 0; i < (isMobile ? 30 : 50); i++) {
+    bgTwinklers.push({ x: Math.random() * w, y: Math.random() * h, r: 0.8 + Math.random() * 1, a: 0.3, period: 3 + Math.random() * 5, offset: Math.random() * Math.PI * 2 });
+  }
+  // L3 drifters
+  for (var i = 0; i < (isMobile ? 8 : 15); i++) {
+    bgDrifters.push({ x: Math.random() * w, y: Math.random() * h, r: 1.5 + Math.random() * 1.5, a: 0.5 + Math.random() * 0.3, vx: (Math.random() - 0.5) * 0.15, vy: (Math.random() - 0.5) * 0.1 });
+  }
+  // Nebula offscreen
+  nebulaOffscreen = document.createElement('canvas');
+  nebulaOffscreen.width = w; nebulaOffscreen.height = h;
+  var nc = nebulaOffscreen.getContext('2d');
+  var g1 = nc.createRadialGradient(w*0.3, h*0.4, 0, w*0.3, h*0.4, w*0.4);
+  g1.addColorStop(0, 'rgba(56,189,248,0.03)'); g1.addColorStop(1, 'transparent');
+  nc.fillStyle = g1; nc.fillRect(0,0,w,h);
+  var g2 = nc.createRadialGradient(w*0.7, h*0.6, 0, w*0.7, h*0.6, w*0.35);
+  g2.addColorStop(0, 'rgba(124,58,237,0.02)'); g2.addColorStop(1, 'transparent');
+  nc.fillStyle = g2; nc.fillRect(0,0,w,h);
+
+  glowX = w / 2; glowY = h / 2;
+  document.addEventListener('mousemove', function(e) { mouseX = e.clientX; mouseY = e.clientY; });
+  document.addEventListener('touchmove', function(e) { if (e.touches[0]) { mouseX = e.touches[0].clientX; mouseY = e.touches[0].clientY; } });
+
+  requestAnimationFrame(drawBg);
+}
+
+function drawBg(now) {
+  requestAnimationFrame(drawBg);
+  if (now - bgLastFrame < 33) return;
+  bgLastFrame = now;
+  var w = window.innerWidth, h = window.innerHeight;
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  bgCtx.clearRect(0, 0, w, h);
+
+  // Nebula
+  if (nebulaOffscreen) bgCtx.drawImage(nebulaOffscreen, 0, 0);
+
+  // L1
+  bgCtx.fillStyle = '#c8ccd8';
+  bgStars.forEach(function(s) { bgCtx.globalAlpha = s.a; bgCtx.beginPath(); bgCtx.arc(s.x, s.y, s.r, 0, Math.PI*2); bgCtx.fill(); });
+
+  // L2 twinkle
+  var t = now / 1000;
+  bgTwinklers.forEach(function(s) {
+    var a = 0.2 + 0.4 * (0.5 + 0.5 * Math.sin(t / s.period * Math.PI * 2 + s.offset));
+    bgCtx.globalAlpha = a; bgCtx.fillStyle = '#f0f1f5';
+    bgCtx.beginPath(); bgCtx.arc(s.x, s.y, s.r, 0, Math.PI*2); bgCtx.fill();
+  });
+
+  // L3 drift
+  bgDrifters.forEach(function(s) {
+    s.x += s.vx; s.y += s.vy;
+    if (s.x < 0) s.x = w; if (s.x > w) s.x = 0;
+    if (s.y < 0) s.y = h; if (s.y > h) s.y = 0;
+    bgCtx.globalAlpha = s.a; bgCtx.fillStyle = '#f0f1f5';
+    bgCtx.beginPath(); bgCtx.arc(s.x, s.y, s.r, 0, Math.PI*2); bgCtx.fill();
+  });
+
+  // L5 glow follow
+  if (mouseX > 0) { glowX += (mouseX - glowX) * 0.03; glowY += (mouseY - glowY) * 0.03; }
+  else { glowX += (w/2 - glowX) * 0.005; glowY += (h/2 - glowY) * 0.005; }
+  var grd = bgCtx.createRadialGradient(glowX, glowY, 0, glowX, glowY, 180);
+  grd.addColorStop(0, 'rgba(125,211,252,0.06)'); grd.addColorStop(1, 'transparent');
+  bgCtx.globalAlpha = 1; bgCtx.fillStyle = grd; bgCtx.fillRect(0,0,w,h);
+  bgCtx.globalAlpha = 1;
+}
+
+// ==================== CANVAS FX (particles + fireworks) ====================
+var particles = [];
+var fireworks = [];
+var fxRunning = false;
+
+function initClickParticles() {
+  document.addEventListener('click', function(e) {
+    spawnClickParticles(e.clientX, e.clientY);
+  });
+  if (!fxRunning) { fxRunning = true; requestAnimationFrame(drawFx); }
+}
+
+function spawnClickParticles(x, y) {
+  for (var i = 0; i < 8; i++) {
+    var angle = (Math.PI * 2 / 8) * i + (Math.random() - 0.5) * 0.5;
+    var speed = 1.5 + Math.random() * 2;
+    particles.push({ x: x, y: y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, a: 1, r: 1.5 + Math.random(), life: 0.8, age: 0, color: Math.random() > 0.5 ? '#7dd3fc' : '#c4b5fd' });
+  }
+}
+
+function drawFx(now) {
+  requestAnimationFrame(drawFx);
+  var w = window.innerWidth, h = window.innerHeight;
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  fxCtx.clearRect(0, 0, w, h);
+
+  // Particles
+  for (var i = particles.length - 1; i >= 0; i--) {
+    var p = particles[i];
+    p.age += 0.016; p.x += p.vx; p.y += p.vy; p.vy += 0.05;
+    p.a = 1 - p.age / p.life;
+    if (p.a <= 0) { particles.splice(i, 1); continue; }
+    fxCtx.globalAlpha = p.a; fxCtx.fillStyle = p.color;
+    fxCtx.beginPath(); fxCtx.arc(p.x, p.y, p.r, 0, Math.PI*2); fxCtx.fill();
+  }
+
+  // Fireworks
+  for (var i = fireworks.length - 1; i >= 0; i--) {
+    var fw = fireworks[i];
+    if (fw.phase === 'rising') {
+      fw.y -= fw.speed;
+      // Trail
+      fxCtx.globalAlpha = 0.6; fxCtx.fillStyle = fw.color;
+      fxCtx.beginPath(); fxCtx.arc(fw.x, fw.y, 2, 0, Math.PI*2); fxCtx.fill();
+      for (var t = 0; t < 3; t++) {
+        fxCtx.globalAlpha = 0.2 - t*0.06; fxCtx.beginPath();
+        fxCtx.arc(fw.x + (Math.random()-0.5)*2, fw.y + t*8, 1.5, 0, Math.PI*2); fxCtx.fill();
+      }
+      if (fw.y <= fw.targetY) {
+        fw.phase = 'exploding'; fw.explodeTime = 0;
+        var count = 40 + Math.floor(Math.random()*20);
+        fw.parts = [];
+        if (fw.text) {
+          var positions = getTextParticlePositions(fw.text, fw.x, fw.y);
+          for (var j = 0; j < positions.length; j++) {
+            var angle = Math.random() * Math.PI * 2;
+            var spd = 2 + Math.random() * 3;
+            fw.parts.push({ x: fw.x, y: fw.y, vx: Math.cos(angle)*spd, vy: Math.sin(angle)*spd, tx: positions[j].x, ty: positions[j].y, a: 1, r: 1.5, phase: 'burst', timer: 0 });
+          }
+        } else {
+          for (var j = 0; j < count; j++) {
+            var angle = (Math.PI*2*j)/count + (Math.random()-0.5)*0.3;
+            var spd = 2 + Math.random()*3;
+            fw.parts.push({ x: fw.x, y: fw.y, vx: Math.cos(angle)*spd, vy: Math.sin(angle)*spd, a: 1, r: 1.5+Math.random(), phase: 'burst', timer: 0 });
+          }
+        }
+      }
+    } else if (fw.phase === 'exploding') {
+      fw.explodeTime += 0.016;
+      var allDead = true;
+      for (var j = 0; j < fw.parts.length; j++) {
+        var p = fw.parts[j];
+        p.timer += 0.016;
+        if (fw.text) {
+          if (p.timer < 0.5) {
+            p.x += p.vx; p.y += p.vy; p.vx *= 0.96; p.vy *= 0.96; p.vy += 0.02;
+          } else if (p.timer < 1.5) {
+            p.x += (p.tx - p.x) * 0.08; p.y += (p.ty - p.y) * 0.08;
+          } else if (p.timer < 2.3) {
+            // hold
+          } else {
+            p.x += (Math.random()-0.5)*2; p.y += 0.5; p.a -= 0.02;
+          }
+        } else {
+          p.x += p.vx; p.y += p.vy; p.vx *= 0.97; p.vy *= 0.97; p.vy += 0.02; p.a -= 0.008;
+        }
+        if (p.a > 0) {
+          allDead = false;
+          fxCtx.globalAlpha = Math.max(0, p.a); fxCtx.fillStyle = fw.color;
+          fxCtx.beginPath(); fxCtx.arc(p.x, p.y, p.r, 0, Math.PI*2); fxCtx.fill();
+        }
+      }
+      if (allDead || fw.explodeTime > 4) { fireworks.splice(i, 1); }
+    }
+  }
+  fxCtx.globalAlpha = 1;
+}
+
+function getTextParticlePositions(text, centerX, centerY) {
+  var off = document.createElement('canvas');
+  off.width = 200; off.height = 60;
+  var c = off.getContext('2d');
+  c.fillStyle = '#fff';
+  c.font = 'bold 32px "ZCOOL QingKe HuangYou", sans-serif';
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(text, 100, 30);
+  var img = c.getImageData(0,0,200,60);
+  var pos = [];
+  for (var y = 0; y < 60; y += 3) {
+    for (var x = 0; x < 200; x += 3) {
+      if (img.data[(y*200+x)*4+3] > 128) {
+        pos.push({ x: centerX + (x-100)*1.5, y: centerY + (y-30)*1.5 });
+      }
+    }
+  }
+  return pos;
+}
+
+function launchFirework(x, targetY, color, text) {
+  var h = window.innerHeight;
+  fireworks.push({ x: x, y: h + 10, targetY: targetY, color: color, text: text || null, phase: 'rising', speed: 4 + Math.random()*2, parts: [], explodeTime: 0 });
+}
+
+// ==================== SCENE MANAGEMENT ====================
+var SCENES = ['password','dna','briefing','level1','level2','minigame','level3','level4','level5','merge','hidden','certificate','cake','fireworks','final','wish'];
+
+var sceneNames = { password:'密码', dna:'DNA扫描', briefing:'任务简报', level1:'第一关', level2:'第二关', minigame:'小游戏', level3:'第三关', level4:'第四关', level5:'第五关', merge:'勋章合并', hidden:'隐藏关', certificate:'证书', cake:'蛋糕', fireworks:'烟花', final:'最终通讯', wish:'愿望' };
+
+function startScene(sceneId) {
+  var current = document.querySelector('.scene.scene-active');
+  if (current) current.classList.remove('scene-active');
+  var target = document.getElementById('scene-' + sceneId);
+  if (target) {
+    setTimeout(function() { target.classList.add('scene-active'); }, 50);
+  }
+  // Show/hide status bar
+  var showBar = ['briefing','level1','level2','minigame','level3','level4','level5','merge','hidden','certificate'].indexOf(sceneId) >= 0;
+  document.getElementById('status-bar').classList.toggle('visible', showBar);
+  var showProgress = ['level1','level2','minigame','level3','level4','level5','merge','hidden','certificate'].indexOf(sceneId) >= 0;
+  document.getElementById('progress-bar').classList.toggle('visible', showProgress);
+
+  // Restore medals
+  var state = getState();
+  state.medalsEarned.forEach(function(m) { activateMedal(m); });
+  updateProgressBar();
+
+  var initFn = sceneInitMap[sceneId];
+  if (initFn) initFn();
+}
+
+function activateMedal(num) {
+  var m = document.querySelector('.medal[data-medal="' + num + '"]');
+  if (m) m.classList.add('active');
+}
+
+function updateProgressBar() {
+  var s = getState();
+  var n = s.medalsEarned.length;
+  var pct = n * 20;
+  var fill = document.getElementById('progress-fill');
+  var label = document.getElementById('progress-label');
+  if (fill) fill.style.width = pct + '%';
+  if (label) label.textContent = 'LV ' + n + '/5';
+}
+
+function nextScene(currentId) {
+  var idx = SCENES.indexOf(currentId);
+  if (idx >= 0 && idx < SCENES.length - 1) {
+    var next = SCENES[idx + 1];
+    saveProgress(next);
+    startScene(next);
+  }
+}
+
+// ==================== SCENE: PASSWORD ====================
+var pwAttempts = 0;
+
+function initPasswordScene() {
+  var header = document.getElementById('pw-header');
+  var tw = document.getElementById('pw-typewriter');
+  var area = document.getElementById('pw-area');
+  var input = document.getElementById('password-input');
+  var errorEl = document.getElementById('password-error');
+
+  header.style.opacity = '0';
+  tw.innerHTML = '';
+  area.classList.remove('visible');
+  input.value = '';
+  errorEl.textContent = '';
+
+  // Blackout then data rain then typewriter
+  setTimeout(function() {
+    header.style.opacity = '1';
+    header.style.transition = 'opacity 1s';
+  }, 1500);
+
+  var twText = '⚠ 检测到一道加密星际信号\n\n信号来源：中国 · <span class="highlight" style="color:#7dd3fc;">西安 · 西安交通大学</span>\n信号目标：中国 · 山东 · <span class="highlight" style="color:#7dd3fc;">日照</span>\n信号距离：约 1,000 公里\n信号类型：<span class="highlight" style="color:#7dd3fc;">绝密</span>生日任务\n发送者代号：<span class="highlight" style="color:#7dd3fc;">老哥</span>\n接收者代号：<span class="highlight" style="color:#7dd3fc;">孙鸣泽</span>\n\n该信号已被加密，请验证身份以解锁。';
+
+  setTimeout(function() {
+    typewrite(tw, twText.replace(/\n/g, '<br>'), 40, function() {
+      tw.innerHTML += '<span class="cursor-blink">▊</span>';
+      setTimeout(function() { area.classList.add('visible'); input.focus(); }, 500);
+    });
+  }, 3000);
+
+  input.oninput = function() {
+    if (input.value.length === 4) {
+      checkPassword(input.value);
+    }
+  };
+}
+
+function checkPassword(val) {
+  var input = document.getElementById('password-input');
+  var errorEl = document.getElementById('password-error');
+  if (val === '0602') {
+    input.style.borderColor = '#4ade80';
+    input.style.boxShadow = '0 0 20px rgba(74,222,128,0.2)';
+    errorEl.textContent = '';
+    flashScreen('white', 0.3);
+    setTimeout(function() {
+      setState({ startTime: Date.now() });
+      saveProgress('dna');
+      startScene('dna');
+    }, 800);
+  } else {
+    pwAttempts++;
+    incrementWrongCount();
+    input.value = '';
+    input.parentElement.classList.add('shake');
+    setTimeout(function() { input.parentElement.classList.remove('shake'); }, 300);
+    input.style.borderColor = 'var(--error)';
+    setTimeout(function() { input.style.borderColor = ''; }, 500);
+    var hints = [
+      '⚠ 密码错误 · 警告：再错3次本信号将自毁',
+      '💡 提示：想想接收者最重要的日子',
+      '💡 再提示：_月_日？（四个数字）',
+      '💡 好吧最后提示：06__',
+      '⚠ ……算了，密码是 0602，快进来吧 😂'
+    ];
+    errorEl.textContent = hints[Math.min(pwAttempts - 1, 4)];
+    if (pwAttempts >= 5) {
+      setTimeout(function() { input.value = '0602'; checkPassword('0602'); }, 1500);
+    }
+  }
+}
+
+// ==================== SCENE: DNA ====================
+var scanTimer = null, scanProgress = 0;
+var SCAN_DURATION = 3000;
+
+function initDnaScene() {
+  var inst = document.getElementById('dna-instructions');
+  inst.innerHTML = '通行密码已确认。<br>但本任务等级为 SSS级绝密，<br>仅限 <span style="color:var(--cyan-glow);">孙鸣泽</span> 本人开启。<br><br>请将手指按压在扫描区进行DNA身份认证。';
+
+  var area = document.getElementById('scan-area');
+  var scanText = document.getElementById('scan-text');
+  var fillEl = document.getElementById('scan-progress-fill');
+  var profileCard = document.getElementById('profile-card');
+  scanProgress = 0;
+  fillEl.style.width = '0%';
+  profileCard.style.display = 'none';
+  profileCard.classList.remove('visible');
+
+  function startScan(e) {
+    e.preventDefault();
+    if (scanProgress >= 100) return;
+    scanTimer = setInterval(function() {
+      scanProgress += 100 / (SCAN_DURATION / 50);
+      if (scanProgress > 100) scanProgress = 100;
+      fillEl.style.width = scanProgress + '%';
+      if (scanProgress < 33) scanText.textContent = '> SCANNING BIOMETRIC...';
+      else if (scanProgress < 66) scanText.textContent = '> COMPARING DNA...';
+      else scanText.textContent = '> MATCH: 99.97%';
+      if (scanProgress >= 100) {
+        clearInterval(scanTimer);
+        onScanComplete();
+      }
+    }, 50);
+  }
+  function stopScan(e) {
+    e.preventDefault();
+    if (scanTimer) { clearInterval(scanTimer); scanTimer = null; }
+    if (scanProgress < 100) {
+      document.getElementById('scan-text').textContent = '> AWAITING INPUT...';
+    }
+  }
+
+  area.addEventListener('touchstart', startScan, {passive: false});
+  area.addEventListener('touchend', stopScan, {passive: false});
+  area.addEventListener('mousedown', startScan);
+  area.addEventListener('mouseup', stopScan);
+  area.addEventListener('mouseleave', stopScan);
+}
+
+function onScanComplete() {
+  var area = document.getElementById('scan-area');
+  area.style.borderColor = '#4ade80';
+  area.style.boxShadow = '0 0 30px rgba(74,222,128,0.2)';
+
+  setTimeout(function() {
+    area.style.opacity = '0';
+    area.style.transform = 'scale(0.8)';
+    area.style.transition = 'all 0.5s';
+    document.querySelector('.scan-progress-bar').style.opacity = '0';
+    document.getElementById('dna-instructions').style.opacity = '0';
+  }, 800);
+
+  setTimeout(function() {
+    var card = document.getElementById('profile-card');
+    card.style.display = 'block';
+    setTimeout(function() { card.classList.add('visible'); }, 50);
+    // Animate rows
+    var rows = card.querySelectorAll('.profile-row');
+    rows.forEach(function(r, i) {
+      r.style.opacity = '0'; r.style.transition = 'opacity 0.3s';
+      setTimeout(function() { r.style.opacity = '1'; }, i * 120);
+    });
+  }, 1500);
+
+  document.getElementById('btn-accept').onclick = function() {
+    saveProgress('briefing');
+    startScene('briefing');
+  };
+}
+
+// ==================== SCENE: BRIEFING ====================
+var avatarClicks = 0, avatarClickTimer = null;
+
+function initBriefingScene() {
+  var textArea = document.getElementById('briefing-text');
+  var btn = document.getElementById('btn-start-mission');
+  textArea.innerHTML = '';
+  btn.style.display = 'none';
+
+  var groups = [
+    '乙鸣。', '', '你哥。', '人在西安，离你约1000公里。', '',
+    '今天你9岁。', '我没赶回去。', '', '但我搞了个东西给你——', '',
+    '一共5关。', '不算简单。', '敢不敢来？', '', '（我赌你全能过。）'
+  ];
+
+  var i = 0;
+  function showLine() {
+    if (i >= groups.length) {
+      setTimeout(function() { btn.style.display = 'inline-flex'; btn.classList.add('fade-in-up'); }, 500);
+      return;
+    }
+    var p = document.createElement('p');
+    p.textContent = groups[i] || '\u00A0';
+    p.style.opacity = '0'; p.style.transition = 'opacity 0.4s';
+    textArea.appendChild(p);
+    setTimeout(function() { p.style.opacity = '1'; }, 50);
+    i++;
+    setTimeout(showLine, groups[i-1] === '' ? 300 : 600);
+    // Auto scroll
+    var sc = textArea.closest('.scene-content');
+    if (sc) sc.scrollTop = sc.scrollHeight;
+  }
+  setTimeout(showLine, 500);
+
+  btn.onclick = function() {
+    btn.style.display = 'none';
+    showLoadingText(['>> BREACHING FIREWALL 01...', '>> DECRYPTING...', '>> LOADING ASSETS...', '>> READY.'], function() {
+      saveProgress('level1');
+      startScene('level1');
+    });
+  };
+
+  // Easter egg 1: avatar 5 clicks
+  var aw = document.getElementById('avatar-wrapper');
+  avatarClicks = 0;
+  aw.onclick = function() {
+    avatarClicks++;
+    if (avatarClickTimer) clearTimeout(avatarClickTimer);
+    avatarClickTimer = setTimeout(function() { avatarClicks = 0; }, 2000);
+    if (avatarClicks >= 5) {
+      avatarClicks = 0;
+      var s = getState();
+      if (s.eggsFound.indexOf('egg1') === -1) {
+        showEasterEggCard({ icon: '🤫', title: '你发现了隐藏通讯频道！', content: '老哥的秘密留言：\n\n说实话，你比我9岁的时候强。\n但这话你别告诉咱妈。\n\n—— 已阅即焚 💨', duration: 4000 });
+        saveEasterEgg('egg1');
+      }
+    }
+  };
+
+  // Easter egg 2: long press signal
+  var sig = document.getElementById('signal-strength');
+  var sigTimer = null;
+  sig.addEventListener('touchstart', function(e) {
+    sigTimer = setTimeout(function() {
+      var s = getState();
+      if (s.eggsFound.indexOf('egg2') === -1) {
+        showToast('📡 信号详情：西安交大·某宿舍楼·一个熬夜的哥哥·在给你搞事情', 3000);
+        saveEasterEgg('egg2');
+      }
+    }, 3000);
+  });
+  sig.addEventListener('touchend', function() { clearTimeout(sigTimer); });
+  sig.addEventListener('mousedown', function() {
+    sigTimer = setTimeout(function() {
+      var s = getState();
+      if (s.eggsFound.indexOf('egg2') === -1) {
+        showToast('📡 信号详情：西安交大·某宿舍楼·一个熬夜的哥哥·在给你搞事情', 3000);
+        saveEasterEgg('egg2');
+      }
+    }, 3000);
+  });
+  sig.addEventListener('mouseup', function() { clearTimeout(sigTimer); });
+}
+
+// ==================== SCENE: LEVEL 1 ====================
+function initLevel1Scene() {
+  updateProgressBar();
+  var canvas = document.getElementById('level1-canvas');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width = canvas.offsetWidth;
+  var H = canvas.height = canvas.offsetHeight;
+
+  var ninePattern = [
+    {rx:0.5,ry:0.15},{rx:0.65,ry:0.18},{rx:0.72,ry:0.28},{rx:0.65,ry:0.38},
+    {rx:0.5,ry:0.42},{rx:0.35,ry:0.38},{rx:0.28,ry:0.28},{rx:0.35,ry:0.18},
+    {rx:0.65,ry:0.5},{rx:0.62,ry:0.6},{rx:0.58,ry:0.7},{rx:0.52,ry:0.78}
+  ];
+  var brightStars = ninePattern.map(function(p) {
+    return { x: W*(0.2+p.rx*0.6), y: H*(0.1+p.ry*0.75) };
+  });
+
+  // random bg stars
+  var randStars = [];
+  for (var i = 0; i < 30; i++) { randStars.push({x:Math.random()*W, y:Math.random()*H, r:0.5+Math.random()*0.5, a:0.15+Math.random()*0.2}); }
+
+  function draw() {
+    ctx.clearRect(0,0,W,H);
+    // bg stars
+    randStars.forEach(function(s){ctx.fillStyle='rgba(200,204,216,'+s.a+')';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();});
+    // connections
+    ctx.strokeStyle = 'rgba(125,211,252,0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    brightStars.forEach(function(s,i){
+      if(i===0) ctx.moveTo(s.x,s.y); else ctx.lineTo(s.x,s.y);
+    });
+    ctx.stroke();
+    // bright stars
+    brightStars.forEach(function(s){
+      var pulse = 0.7 + 0.3*Math.sin(Date.now()/800);
+      ctx.fillStyle = 'rgba(125,211,252,'+pulse+')';
+      ctx.beginPath();ctx.arc(s.x,s.y,3,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle = 'rgba(125,211,252,0.2)';
+      ctx.beginPath();ctx.arc(s.x,s.y,6,0,Math.PI*2);ctx.fill();
+    });
+    l1Anim = requestAnimationFrame(draw);
+  }
+  var l1Anim = requestAnimationFrame(draw);
+
+  var resultEl = document.getElementById('l1-result');
+  var errorEl = document.getElementById('l1-error');
+  resultEl.innerHTML = ''; resultEl.classList.remove('visible'); resultEl.style.display = 'none';
+  errorEl.textContent = '';
+
+  document.getElementById('l1-submit').onclick = function() {
+    var val = document.getElementById('l1-input').value.trim();
+    var correct = ['9','九','nine','９'].indexOf(val.toLowerCase()) >= 0;
+    if (correct) {
+      cancelAnimationFrame(l1Anim);
+      saveMedal(1); activateMedal(1); updateProgressBar();
+      resultEl.style.display = 'block';
+      resultEl.innerHTML = '<p style="font-size:24px;">🎯 解密成功！</p><p style="margin-top:12px;">是9。<br>今天你9岁，连星星都在给你排面。</p><p style="margin-top:8px;">第一道防火墙？秒了。</p><p class="medal-text">解锁勋章：🔭 星图解读者 · STAR READER</p><button class="btn-primary" onclick="showLoadingText([\'>> ENTERING LAYER 02...\',\'>> SYNCING DATA...\',\'>> READY.\'],function(){saveProgress(\'level2\');startScene(\'level2\');})">下一关 →</button>';
+      setTimeout(function(){resultEl.classList.add('visible');},50);
+      showFloatingComment('老哥：还行，热身而已');
+    } else {
+      incrementWrongCount();
+      errorEl.innerHTML = '⚠ 没对<br>💡 看那些最亮的星星，脑子里把它们连起来。';
+      document.getElementById('l1-input').parentElement.classList.add('shake');
+      setTimeout(function(){document.getElementById('l1-input').parentElement.classList.remove('shake');},300);
+    }
+  };
+}
+
+// ==================== SCENE: LEVEL 2 ====================
+function initLevel2Scene() {
+  updateProgressBar();
+  var opts = document.getElementById('l2-options');
+  var errorEl = document.getElementById('l2-error');
+  var resultEl = document.getElementById('l2-result');
+  resultEl.innerHTML = ''; resultEl.classList.remove('visible'); resultEl.style.display = 'none';
+  errorEl.textContent = '';
+
+  opts.querySelectorAll('.option-btn').forEach(function(btn) {
+    btn.classList.remove('correct','wrong','disabled');
+    btn.onclick = function() {
+      var val = btn.dataset.value;
+      if (val === 'C') {
+        btn.classList.add('correct');
+        opts.querySelectorAll('.option-btn').forEach(function(b){b.classList.add('disabled');});
+        saveMedal(2); activateMedal(2); updateProgressBar();
+        resultEl.style.display = 'block';
+        resultEl.innerHTML = '<p style="font-size:24px;">🌅 × 16！</p><p style="margin-top:12px;">空间站每90分钟绕地球一圈，<br>一天16次日出。</p><p style="margin-top:8px;">你以后要是当了宇航员，<br>记得替你哥多看几次。</p><p class="medal-text">解锁勋章：🌌 宇宙探索者 · COSMIC EXPLORER</p><button class="btn-primary" onclick="saveProgress(\'minigame\');startScene(\'minigame\');">下一关 →</button>';
+        setTimeout(function(){resultEl.classList.add('visible');},50);
+        showFloatingComment('老哥：有点东西啊');
+      } else {
+        btn.classList.add('wrong'); btn.classList.add('shake');
+        setTimeout(function(){btn.classList.remove('shake');},300);
+        incrementWrongCount();
+        errorEl.innerHTML = '⚠ 偏了<br>💡 空间站绕地球一圈只要90分钟。<br>一天24小时能绕多少圈？';
+      }
+    };
+  });
+}
+
+// ==================== SCENE: MINIGAME ====================
+var gameScore = 0, gameTime = 15, gameRunning = false, gameAnimId = null;
+
+function initMinigameScene() {
+  var alert = document.getElementById('minigame-alert');
+  var play = document.getElementById('minigame-play');
+  var result = document.getElementById('minigame-result');
+  alert.style.display = 'block'; play.style.display = 'none'; result.style.display = 'none';
+
+  document.getElementById('btn-start-game').onclick = function() {
+    alert.style.display = 'none';
+    play.style.display = 'block';
+    startMinigame();
+  };
+}
+
+function startMinigame() {
+  var canvas = document.getElementById('minigame-canvas');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width = canvas.offsetWidth;
+  var H = canvas.height = canvas.offsetHeight;
+  gameScore = 0; gameTime = 15; gameRunning = true;
+
+  var shipX = W / 2;
+  var items = [];
+  var lastSpawn = 0;
+
+  canvas.addEventListener('touchmove', function(e) {
+    e.preventDefault();
+    var rect = canvas.getBoundingClientRect();
+    shipX = (e.touches[0].clientX - rect.left) / rect.width * W;
+  }, {passive: false});
+  canvas.addEventListener('mousemove', function(e) {
+    var rect = canvas.getBoundingClientRect();
+    shipX = (e.clientX - rect.left) / rect.width * W;
+  });
+
+  var timerInterval = setInterval(function() {
+    gameTime--;
+    document.getElementById('game-timer').textContent = gameTime + 's';
+    if (gameTime <= 0) {
+      gameRunning = false;
+      clearInterval(timerInterval);
+      cancelAnimationFrame(gameAnimId);
+      endMinigame();
+    }
+  }, 1000);
+
+  var types = [{emoji:'⭐',score:1,w:5},{emoji:'⭐',score:1,w:5},{emoji:'⭐',score:1,w:5},{emoji:'⭐',score:1,w:5},{emoji:'⭐',score:1,w:5},{emoji:'💎',score:2,w:3},{emoji:'💎',score:2,w:3},{emoji:'💎',score:2,w:3},{emoji:'☄️',score:0,w:2},{emoji:'☄️',score:0,w:2}];
+
+  function loop(now) {
+    if (!gameRunning) return;
+    gameAnimId = requestAnimationFrame(loop);
+    ctx.clearRect(0,0,W,H);
+
+    // Spawn
+    if (now - lastSpawn > 400) {
+      var type = types[Math.floor(Math.random()*types.length)];
+      items.push({x: 20+Math.random()*(W-40), y: -20, emoji: type.emoji, score: type.score, speed: 2+Math.random()*2});
+      lastSpawn = now;
+    }
+
+    // Draw ship
+    ctx.font = '28px serif'; ctx.textAlign = 'center';
+    ctx.fillText('🚀', shipX, H - 20);
+
+    // Items
+    for (var i = items.length - 1; i >= 0; i--) {
+      var item = items[i];
+      item.y += item.speed;
+      ctx.font = '22px serif';
+      ctx.fillText(item.emoji, item.x, item.y);
+
+      // Collision
+      var dist = Math.sqrt((item.x - shipX)**2 + (item.y - (H-20))**2);
+      if (dist < 30) {
+        if (item.score > 0) {
+          gameScore += item.score;
+          document.getElementById('game-score-display').textContent = '⭐ ' + gameScore;
+        } else {
+          flashScreen('white', 0.1);
+        }
+        items.splice(i, 1);
+        continue;
+      }
+      if (item.y > H + 20) { items.splice(i, 1); }
+    }
+  }
+  gameAnimId = requestAnimationFrame(loop);
+}
+
+function endMinigame() {
+  setState({ gameScore: gameScore });
+  var play = document.getElementById('minigame-play');
+  var result = document.getElementById('minigame-result');
+  play.style.display = 'none';
+  result.style.display = 'block';
+
+  var evals = [
+    [0, '就这？😂 算了，能量凑合够用。'],
+    [6, '还行，飞船充上电了。'],
+    [16, '可以啊！天生宇航员。'],
+    [26, '你开挂了吧🤨']
+  ];
+  var msg = evals[0][1];
+  for (var i = evals.length-1; i >= 0; i--) { if (gameScore >= evals[i][0]) { msg = evals[i][1]; break; } }
+
+  result.innerHTML = '<p style="font-size:20px;">⚡ 能量收集完毕</p><p style="margin-top:8px;">收集了 <span style="color:var(--gold);">' + gameScore + '</span> 颗能量</p><p style="margin-top:8px;">' + msg + '</p><p style="margin-top:12px;">行，能量够了。继续。</p><button class="btn-primary" onclick="showLoadingText([\'>> ENTERING LAYER 03...\',\'>> READY.\'],function(){saveProgress(\'level3\');startScene(\'level3\');})">⚡ 第三关</button>';
+  result.classList.add('visible');
+  showFloatingComment('老哥：手速可以');
+}
+
+// ==================== SCENE: LEVEL 3 ====================
+var matchPairs = {};
+var matchSelected = null;
+var correctPairs = { code1: 'B', code2: 'D', code3: 'C', code4: 'A' };
+
+function initLevel3Scene() {
+  updateProgressBar();
+  matchPairs = {}; matchSelected = null;
+  var submitBtn = document.getElementById('l3-submit');
+  var errorEl = document.getElementById('l3-error');
+  var resultEl = document.getElementById('l3-result');
+  submitBtn.style.display = 'none';
+  errorEl.textContent = '';
+  resultEl.innerHTML = ''; resultEl.classList.remove('visible'); resultEl.style.display = 'none';
+
+  // Reset all items
+  document.querySelectorAll('#matching-area .match-item').forEach(function(item) {
+    item.classList.remove('selected','paired','correct-line','wrong-line');
+    var pi = item.querySelector('.pair-indicator');
+    if (pi) pi.remove();
+
+    item.onclick = function() {
+      var id = item.dataset.id;
+      var isCode = id.indexOf('code') === 0;
+
+      if (item.classList.contains('paired')) {
+        // Unpair
+        var pairKey = isCode ? id : Object.keys(matchPairs).find(function(k){return matchPairs[k]===id;});
+        var pairVal = isCode ? matchPairs[id] : id;
+        if (pairKey && matchPairs[pairKey]) {
+          delete matchPairs[pairKey];
+          var codeEl = document.querySelector('[data-id="'+pairKey+'"]');
+          var meanEl = document.querySelector('[data-id="'+pairVal+'"]');
+          if(codeEl){codeEl.classList.remove('paired');var pi=codeEl.querySelector('.pair-indicator');if(pi)pi.remove();}
+          if(meanEl){meanEl.classList.remove('paired');var pi=meanEl.querySelector('.pair-indicator');if(pi)pi.remove();}
+        }
+        checkSubmitVisibility();
+        return;
+      }
+
+      if (matchSelected === null) {
+        matchSelected = {id: id, el: item, isCode: isCode};
+        item.classList.add('selected');
+      } else {
+        if (matchSelected.isCode === isCode) {
+          matchSelected.el.classList.remove('selected');
+          matchSelected = {id: id, el: item, isCode: isCode};
+          item.classList.add('selected');
+        } else {
+          // Pair them
+          var codeId = isCode ? id : matchSelected.id;
+          var meanId = isCode ? matchSelected.id : id;
+
+          // Remove old pairs if any
+          if (matchPairs[codeId]) {
+            var oldMean = document.querySelector('[data-id="'+matchPairs[codeId]+'"]');
+            if(oldMean){oldMean.classList.remove('paired');var pi=oldMean.querySelector('.pair-indicator');if(pi)pi.remove();}
+          }
+          var existingCode = Object.keys(matchPairs).find(function(k){return matchPairs[k]===meanId;});
+          if (existingCode) {
+            var oldCode = document.querySelector('[data-id="'+existingCode+'"]');
+            if(oldCode){oldCode.classList.remove('paired');var pi=oldCode.querySelector('.pair-indicator');if(pi)pi.remove();}
+            delete matchPairs[existingCode];
+          }
+
+          matchPairs[codeId] = meanId;
+          matchSelected.el.classList.remove('selected');
+          item.classList.remove('selected');
+
+          var codeEl = document.querySelector('[data-id="'+codeId+'"]');
+          var meanEl = document.querySelector('[data-id="'+meanId+'"]');
+          codeEl.classList.add('paired'); meanEl.classList.add('paired');
+
+          // Show pair indicator
+          var label = meanId;
+          var cpi = codeEl.querySelector('.pair-indicator');
+          if(!cpi){cpi=document.createElement('span');cpi.className='pair-indicator';codeEl.appendChild(cpi);}
+          cpi.textContent = '→'+meanId;
+          var mpi = meanEl.querySelector('.pair-indicator');
+          if(!mpi){mpi=document.createElement('span');mpi.className='pair-indicator';meanEl.appendChild(mpi);}
+          mpi.textContent = '←'+codeId.replace('code','');
+
+          matchSelected = null;
+          checkSubmitVisibility();
+        }
+      }
+    };
+  });
+
+  function checkSubmitVisibility() {
+    submitBtn.style.display = Object.keys(matchPairs).length === 4 ? 'inline-flex' : 'none';
+  }
+
+  submitBtn.onclick = function() {
+    var allCorrect = true;
+    Object.keys(correctPairs).forEach(function(code) {
+      var codeEl = document.querySelector('[data-id="'+code+'"]');
+      var meanEl = document.querySelector('[data-id="'+matchPairs[code]+'"]');
+      if (matchPairs[code] === correctPairs[code]) {
+        if(codeEl) codeEl.classList.add('correct-line');
+        if(meanEl) meanEl.classList.add('correct-line');
+      } else {
+        allCorrect = false;
+        if(codeEl) codeEl.classList.add('wrong-line');
+        if(meanEl) meanEl.classList.add('wrong-line');
+      }
+    });
+
+    if (allCorrect) {
+      saveMedal(3); activateMedal(3); updateProgressBar();
+      resultEl.style.display = 'block';
+      resultEl.innerHTML = '<p style="font-size:24px;">💻 全部正确！</p><p style="margin-top:12px;">注意第三行：<br><span class="font-mono" style="color:var(--cyan-glow);">while (想你) { 打电话 }</span><br>意思是"只要想你，就打电话"。</p><p style="margin-top:8px;">这是你哥的日常代码，<br>已经在后台跑了9年了 🙃</p><p class="medal-text">解锁勋章：💻 代码破译师 · CODE BREAKER</p><button class="btn-primary" onclick="showLoadingText([\'>> ENTERING LAYER 04...\',\'>> READY.\'],function(){saveProgress(\'level4\');startScene(\'level4\');})">下一关 →</button>';
+      setTimeout(function(){resultEl.classList.add('visible');},50);
+      showFloatingComment('老哥：好小子，真会');
+    } else {
+      incrementWrongCount();
+      errorEl.innerHTML = '⚠ 有几条连错了<br>红色是错的，蓝色是对的。<br>💡 print=说出来 · if=如果 · while=只要就一直 · ==等于';
+      submitBtn.style.display = 'none';
+      // Allow retry
+      setTimeout(function() {
+        document.querySelectorAll('#matching-area .match-item').forEach(function(item){
+          item.classList.remove('correct-line','wrong-line');
+        });
+        errorEl.textContent = '';
+      }, 2000);
+    }
+  };
+}
+
+// ==================== SCENE: LEVEL 4 ====================
+function initLevel4Scene() {
+  updateProgressBar();
+  var opts = document.getElementById('l4-options');
+  var errorEl = document.getElementById('l4-error');
+  var resultEl = document.getElementById('l4-result');
+  resultEl.innerHTML = ''; resultEl.classList.remove('visible'); resultEl.style.display = 'none';
+  errorEl.textContent = '';
+
+  opts.querySelectorAll('.option-btn').forEach(function(btn) {
+    btn.classList.remove('correct','wrong','disabled');
+    btn.onclick = function() {
+      var val = btn.dataset.value;
+      if (val === 'B') {
+        btn.classList.add('correct');
+        opts.querySelectorAll('.option-btn').forEach(function(b){b.classList.add('disabled');});
+        saveMedal(4); activateMedal(4); updateProgressBar();
+        resultEl.style.display = 'block';
+        resultEl.innerHTML = '<p style="font-size:24px;">🧠 漂亮！</p><p style="margin-top:12px;">1楼到10楼是9段楼梯，不是10段。<br>很多人会掉进"10层=10段"的坑里。</p><p style="margin-top:8px;">你没掉。不错。</p><p class="medal-text">解锁勋章：🧠 逻辑鬼才 · LOGIC GENIUS</p><button class="btn-primary" onclick="initLevel5Transition()">下一关 →</button>';
+        setTimeout(function(){resultEl.classList.add('visible');},50);
+        showFloatingComment('老哥：行，你比我想的聪明');
+      } else {
+        btn.classList.add('wrong'); btn.classList.add('shake');
+        setTimeout(function(){btn.classList.remove('shake');},300);
+        incrementWrongCount();
+        errorEl.innerHTML = '⚠ 掉坑了<br>💡 1楼到2楼=第1段，2楼到3楼=第2段…<br>那1楼到10楼一共几段？不是10段哦。';
+      }
+    };
+  });
+}
+
+function initLevel5Transition() {
+  flashScreen('purple', 0.3);
+  showLoadingText(['>> ⚠ FINAL FIREWALL', '>> DIFFICULTY · MAX', '>> THIS IS THE LAST ONE', '>> PROVE YOURSELF', '>> LOADING...'], function() {
+    saveProgress('level5');
+    startScene('level5');
+  });
+}
+
+// ==================== SCENE: LEVEL 5 ====================
+function initLevel5Scene() {
+  updateProgressBar();
+  var opts = document.getElementById('l5-options');
+  var errorEl = document.getElementById('l5-error');
+  var resultEl = document.getElementById('l5-result');
+  resultEl.innerHTML = ''; resultEl.classList.remove('visible'); resultEl.style.display = 'none';
+  errorEl.textContent = '';
+
+  opts.querySelectorAll('.option-btn').forEach(function(btn) {
+    btn.classList.remove('correct','wrong','disabled');
+    btn.onclick = function() {
+      var val = btn.dataset.value;
+      if (val === 'B') {
+        btn.classList.add('correct');
+        opts.querySelectorAll('.option-btn').forEach(function(b){b.classList.add('disabled');});
+        flashScreen('gold', 0.3);
+        // Gold particles
+        for (var i = 0; i < 30; i++) {
+          var angle = Math.random()*Math.PI*2;
+          var speed = 3+Math.random()*4;
+          var cx = window.innerWidth/2, cy = window.innerHeight/2;
+          particles.push({x:cx,y:cy,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,a:1,r:2+Math.random()*2,life:1.2,age:0,color:'#fbbf24'});
+        }
+        saveMedal(5); activateMedal(5); updateProgressBar();
+        setState({ endTime: Date.now() });
+        resultEl.style.display = 'block';
+        resultEl.innerHTML = '<p style="font-size:24px;">🏆 最终防火墙 —— 已击穿！</p><p style="margin-top:12px;">超过第2名，你就取代了他的位置。<br>所以你是第2名，不是第1名。</p><p style="margin-top:8px;">很多人都会选第1名。<br>你没上当。</p><p style="margin-top:12px;color:var(--cyan-glow);">乙鸣，五关全过了。<br>你是真的有东西。</p><p class="medal-text">解锁勋章：🏆 终极破译者 · ULTIMATE DECODER</p><button class="btn-primary" onclick="saveProgress(\'merge\');startScene(\'merge\');">查看战绩 →</button>';
+        setTimeout(function(){resultEl.classList.add('visible');},50);
+        showFloatingComment('老哥：我弟是天才。就这么定了。');
+      } else {
+        btn.classList.add('wrong'); btn.classList.add('shake');
+        setTimeout(function(){btn.classList.remove('shake');},300);
+        incrementWrongCount();
+        errorEl.innerHTML = '⚠ 再想想<br>💡 你超过了第2名——<br>你取代了他的位置。<br>那你现在排第几？';
+      }
+    };
+  });
+}
+
+// ==================== SCENE: MERGE ====================
+function initMergeScene() {
+  var container = document.getElementById('merge-container');
+  container.innerHTML = '';
+
+  // Step 1: Show medals flying in
+  var medalsHtml = '<div class="merge-medals" id="merge-medals-row"><span class="merge-medal" style="opacity:0;">🔭</span><span class="merge-medal" style="opacity:0;">🌌</span><span class="merge-medal" style="opacity:0;">💻</span><span class="merge-medal" style="opacity:0;">🧠</span><span class="merge-medal" style="opacity:0;">🏆</span></div>';
+  container.innerHTML = medalsHtml;
+
+  var medals = container.querySelectorAll('.merge-medal');
+  medals.forEach(function(m, i) {
+    setTimeout(function() { m.style.opacity = '1'; m.style.transition = 'opacity 0.3s'; }, i * 200);
+  });
+
+  // Step 2: Merge into star
+  setTimeout(function() {
+    medals.forEach(function(m) { m.style.transform = 'scale(0)'; m.style.transition = 'all 0.5s'; m.style.margin = '0 -10px'; });
+  }, 2000);
+
+  setTimeout(function() {
+    var row = document.getElementById('merge-medals-row');
+    row.style.display = 'none';
+    container.innerHTML += '<div class="merge-star" id="merge-star">⭐</div>';
+    setTimeout(function() { document.getElementById('merge-star').classList.add('visible'); }, 50);
+    flashScreen('gold', 0.3);
+
+    // Gold particles
+    for (var i = 0; i < 40; i++) {
+      var angle = Math.random()*Math.PI*2;
+      var speed = 2+Math.random()*4;
+      var cx = window.innerWidth/2, cy = window.innerHeight/2;
+      particles.push({x:cx,y:cy,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,a:1,r:2+Math.random()*2,life:1.5,age:0,color:Math.random()>0.5?'#fbbf24':'#7dd3fc'});
+    }
+  }, 2800);
+
+  setTimeout(function() {
+    container.innerHTML += '<p class="merge-title font-cn-title" style="font-size:18px;">⭐ 星际探险家 · STAR EXPLORER · 一级认证</p>';
+  }, 4000);
+
+  setTimeout(function() {
+    container.innerHTML += '<div class="merge-stats fade-in"><p>🎊 全部防火墙已突破！</p><p>任务完成度：100%</p><p>获得勋章：5/5</p><p>认证等级：星际探险家 · 一级</p></div>';
+  }, 5000);
+
+  // Fake progress bar
+  setTimeout(function() {
+    container.innerHTML += '<p class="font-mono" style="font-size:12px;color:var(--silver-400);margin-top:20px;">> GENERATING CERTIFICATE...</p><div class="fake-progress"><div class="fake-progress-fill" id="fake-fill" style="width:0%;">0%</div></div>';
+    var fill = document.getElementById('fake-fill');
+    var progress = 0;
+    var interval = setInterval(function() {
+      progress += Math.random() * 8;
+      if (progress > 87) {
+        progress = 87;
+        clearInterval(interval);
+        fill.style.width = '87%'; fill.textContent = '87%';
+        setTimeout(function() {
+          flashScreen('purple', 0.2);
+          showHiddenLevelPrompt(container);
+        }, 1000);
+      } else {
+        fill.style.width = Math.floor(progress) + '%';
+        fill.textContent = Math.floor(progress) + '%';
+      }
+    }, 300);
+  }, 8000);
+}
+
+function showHiddenLevelPrompt(container) {
+  container.innerHTML += '<div class="card fade-in" style="margin-top:20px;text-align:center;"><p class="font-label" style="color:var(--purple-glow);font-size:11px;">⚠ ANOMALY DETECTED</p><p style="margin-top:8px;">等一下。</p><p>系统检测到一个隐藏关卡。</p><p>从未有人发现。</p><p>难度：<span class="blink">？？？</span></p><div class="btn-group"><button class="btn-primary" id="btn-enter-hidden">🔥 进入隐藏关</button><button class="btn-ghost" id="btn-skip-hidden">⏭ 跳过</button></div></div>';
+
+  document.getElementById('btn-enter-hidden').onclick = function() {
+    saveProgress('hidden'); startScene('hidden');
+  };
+  document.getElementById('btn-skip-hidden').onclick = function() {
+    setState({ hiddenSkipped: true }); saveProgress('certificate'); startScene('certificate');
+  };
+}
+
+// ==================== SCENE: HIDDEN ====================
+function initHiddenScene() {
+  var opts = document.getElementById('hidden-options');
+  var errorEl = document.getElementById('hidden-error');
+  var resultEl = document.getElementById('hidden-result');
+  resultEl.innerHTML = ''; resultEl.classList.remove('visible'); resultEl.style.display = 'none';
+  errorEl.textContent = '';
+
+  opts.querySelectorAll('.option-btn').forEach(function(btn) {
+    btn.classList.remove('correct','wrong','disabled');
+    btn.onclick = function() {
+      var val = btn.dataset.value;
+      if (val === 'C') {
+        btn.classList.add('correct');
+        opts.querySelectorAll('.option-btn').forEach(function(b){b.classList.add('disabled');});
+        // Gold rain
+        for (var i = 0; i < 20; i++) {
+          setTimeout(function() {
+            var x = Math.random()*window.innerWidth;
+            particles.push({x:x,y:-10,vx:(Math.random()-0.5)*0.5,vy:1+Math.random()*2,a:1,r:2,life:3,age:0,color:'#fbbf24'});
+          }, i * 100);
+        }
+        setState({ hiddenCompleted: true });
+        resultEl.style.display = 'block';
+        resultEl.innerHTML = '<span class="hidden-badge">👑</span><p style="font-size:20px;color:var(--gold);">没什么好说的。你就是天才。</p><p style="margin-top:12px;">不是因为你选对了，<br>是因为你知道——<br>真正厉害的人不需要证明自己厉害。</p><p class="medal-text" style="color:var(--gold);">🎖 隐藏成就：超级天才 · GENIUS · 终身认证</p><button class="btn-primary" onclick="saveProgress(\'certificate\');startScene(\'certificate\');">领取证书 →</button>';
+        setTimeout(function(){resultEl.classList.add('visible');},50);
+      } else {
+        btn.classList.add('wrong'); btn.classList.add('shake');
+        setTimeout(function(){btn.classList.remove('shake');},300);
+        incrementWrongCount();
+        errorEl.innerHTML = '🤔 再看看题。<br>💡 左边、右边、还有地上。<br>题目里已经告诉你答案了。';
+      }
+    };
+  });
+}
+
+// ==================== SCENE: CERTIFICATE ====================
+function initCertificateScene() {
+  var state = getState();
+
+  // Hidden medal line
+  var hml = document.getElementById('hidden-medal-line');
+  if (state.hiddenCompleted) {
+    hml.textContent = '👑 超级天才 · GENIUS（隐藏成就）';
+    hml.style.color = 'var(--gold)';
+  } else {
+    hml.textContent = '❓ ???（你错过了一个秘密）';
+    hml.style.color = 'var(--silver-400)';
+  }
+
+  // Time
+  var totalTime = (state.endTime || Date.now()) - (state.startTime || Date.now());
+  var mins = Math.floor(totalTime / 60000);
+  var secs = Math.floor((totalTime % 60000) / 1000);
+  document.getElementById('cert-time').textContent = mins + ' 分 ' + secs + ' 秒';
+  document.getElementById('cert-wrong').textContent = state.wrongCount;
+  document.getElementById('cert-energy').textContent = state.gameScore;
+
+  // Comment
+  var comment = '';
+  if (state.wrongCount === 0) comment = '零失误。完美通关。没什么好说的。';
+  else if (state.wrongCount <= 3) comment = '小磕小碰，不影响天才认证。';
+  else if (state.wrongCount <= 6) comment = '绕了点路，但你到了。这就够了。';
+  else comment = '一路撞墙但没放弃，这比聪明更牛。';
+  document.getElementById('cert-comment').textContent = '「' + comment + '」';
+
+  // Easter egg 3
+  document.getElementById('cert-issuer').onclick = function() {
+    var s = getState();
+    if (s.eggsFound.indexOf('egg3') === -1) {
+      showToast('该机构由你哥一人组成，经费为零，全靠爱发电', 3000);
+      saveEasterEgg('egg3');
+    }
+  };
+
+  // To cake button
+  document.getElementById('btn-to-cake').onclick = function() {
+    saveProgress('cake'); startScene('cake');
+  };
+}
+
+// ==================== SCENE: CAKE ====================
+var candleData = [];
+
+function initCakeScene() {
+  // Hide status bar and progress
+  document.getElementById('status-bar').classList.remove('visible');
+  document.getElementById('progress-bar').classList.remove('visible');
+
+  var textArea = document.getElementById('cake-text-area');
+  textArea.innerHTML = '';
+  var lines = ['关卡全过了，脑子可以歇了。', '', '这是你的蛋糕。', '像素做的，不能吃。', '但蜡烛是真点的。', '', '许个愿。', '然后用手指划过蜡烛，把火扇灭。'];
+  var i = 0;
+  function showLine() {
+    if (i >= lines.length) {
+      document.getElementById('cake-instruction').style.opacity = '1';
+      return;
+    }
+    var p = document.createElement('p');
+    p.textContent = lines[i] || '\u00A0';
+    p.style.opacity = '0'; p.style.transition = 'opacity 0.4s';
+    textArea.appendChild(p);
+    setTimeout(function() { p.style.opacity = '1'; }, 50);
+    i++;
+    setTimeout(showLine, lines[i-1] === '' ? 200 : 400);
+  }
+  setTimeout(showLine, 300);
+
+  // Create candles
+  var candlesRow = document.getElementById('candles-row');
+  candlesRow.innerHTML = '';
+  candleData = [];
+  for (var c = 0; c < 9; c++) {
+    var div = document.createElement('div');
+    div.className = 'candle';
+    div.innerHTML = '<div class="candle-flame" id="flame-' + c + '"></div>';
+    candlesRow.appendChild(div);
+    candleData.push({ el: div, extinguished: false });
+  }
+
+  // Touch to extinguish
+  candlesRow.addEventListener('touchmove', function(e) {
+    e.preventDefault();
+    var touch = e.touches[0];
+    candleData.forEach(function(candle, idx) {
+      if (candle.extinguished) return;
+      var rect = candle.el.getBoundingClientRect();
+      var cx = rect.left + rect.width / 2;
+      var cy = rect.top;
+      if (Math.abs(touch.clientX - cx) < 25 && touch.clientY < cy + 30 && touch.clientY > cy - 40) {
+        extinguishCandle(candle, idx);
+      }
+    });
+  }, {passive: false});
+
+  // Mouse fallback
+  candlesRow.addEventListener('mousemove', function(e) {
+    candleData.forEach(function(candle, idx) {
+      if (candle.extinguished) return;
+      var rect = candle.el.getBoundingClientRect();
+      var cx = rect.left + rect.width / 2;
+      var cy = rect.top;
+      if (Math.abs(e.clientX - cx) < 20 && e.clientY < cy + 30 && e.clientY > cy - 40) {
+        extinguishCandle(candle, idx);
+      }
+    });
+  });
+
+  // Also allow click
+  candlesRow.addEventListener('click', function(e) {
+    candleData.forEach(function(candle, idx) {
+      if (candle.extinguished) return;
+      var rect = candle.el.getBoundingClientRect();
+      var cx = rect.left + rect.width / 2;
+      var cy = rect.top;
+      if (Math.abs(e.clientX - cx) < 20) {
+        extinguishCandle(candle, idx);
+      }
+    });
+  });
+
+  document.getElementById('blessing-image').style.display = 'none';
+  document.getElementById('btn-to-fireworks').style.display = 'none';
+}
+
+function extinguishCandle(candle, idx) {
+  if (candle.extinguished) return;
+  candle.extinguished = true;
+  var flame = document.getElementById('flame-' + idx);
+  flame.classList.add('out');
+  // Smoke
+  var smoke = document.createElement('div');
+  smoke.className = 'candle-smoke';
+  candle.el.appendChild(smoke);
+  setTimeout(function() { smoke.remove(); }, 1500);
+  // Particles
+  var rect = candle.el.getBoundingClientRect();
+  spawnClickParticles(rect.left + rect.width/2, rect.top);
+
+  // Check all extinguished
+  var allOut = candleData.every(function(c) { return c.extinguished; });
+  if (allOut) {
+    setTimeout(onAllCandlesOut, 800);
+  }
+}
+
+function onAllCandlesOut() {
+  document.getElementById('cake-instruction').style.opacity = '0';
+  var container = document.getElementById('cake-container');
+  container.style.opacity = '0';
+  container.style.transition = 'opacity 0.5s';
+
+  setTimeout(function() {
+    container.style.display = 'none';
+    var blessing = document.getElementById('blessing-image');
+    blessing.style.display = 'block';
+    setTimeout(function() { blessing.classList.add('visible'); }, 100);
+
+    setTimeout(function() {
+      var btn = document.getElementById('btn-to-fireworks');
+      btn.style.display = 'inline-flex';
+      btn.classList.add('fade-in-up');
+      btn.onclick = function() {
+        blessing.classList.remove('visible');
+        setTimeout(function() {
+          saveProgress('fireworks');
+          startScene('fireworks');
+        }, 500);
+      };
+    }, 3000);
+  }, 600);
+}
+
+// ==================== SCENE: FIREWORKS ====================
+function initFireworksScene() {
+  document.getElementById('status-bar').classList.remove('visible');
+  document.getElementById('progress-bar').classList.remove('visible');
+  document.getElementById('btn-after-fireworks').style.display = 'none';
+
+  var w = window.innerWidth;
+  var h = window.innerHeight;
+
+  var sequence = [
+    {delay:500, x:w*0.3, color:'#7dd3fc', text:null},
+    {delay:1500, x:w*0.7, color:'#c4b5fd', text:null},
+    {delay:2800, x:w*0.5, color:'#fbbf24', text:'生日快乐'},
+    {delay:4200, x:w*0.3, color:'#7dd3fc', text:null},
+    {delay:5200, x:w*0.6, color:'#fde68a', text:'9岁！'},
+    {delay:6500, x:w*0.4, color:'#c4b5fd', text:null},
+    {delay:7800, x:w*0.5, color:'#fbbf24', text:'乙鸣🎂'},
+    {delay:8800, x:w*0.7, color:'#7dd3fc', text:null},
+  ];
+
+  sequence.forEach(function(fw) {
+    setTimeout(function() {
+      launchFirework(fw.x, h * (0.2 + Math.random()*0.2), fw.color, fw.text);
+    }, fw.delay);
+  });
+
+  // Show continue button after fireworks
+  setTimeout(function() {
+    var btn = document.getElementById('btn-after-fireworks');
+    btn.style.display = 'inline-flex';
+    btn.classList.add('fade-in-up');
+    btn.onclick = function() {
+      saveProgress('final');
+      startScene('final');
+    };
+  }, 12000);
+}
+
+// ==================== SCENE: FINAL ====================
+var nineClickCount = 0, nineClickTimer = null;
+
+function initFinalScene() {
+  document.getElementById('status-bar').classList.remove('visible');
+  document.getElementById('progress-bar').classList.remove('visible');
+
+  var textsArea = document.getElementById('final-texts');
+  textsArea.innerHTML = '';
+
+  var groups = [
+    { lines: ['乙鸣。', '', '五关全过了。', '', '我就知道你行。'], style: 'normal' },
+    { lines: ['你哥人在西安，今天没法回去。', '但这个东西，花了我一整个晚上。', '你觉得酷就行。'], style: 'normal' },
+    { lines: ['9岁了啊。', '', '去年还8岁，一转眼就9了。', '明年就两位数了，离谱。'], style: 'normal' },
+    { lines: ['没什么大道理要讲。', '就一句——', '', '以后想去哪就去哪，想干啥就干啥。', '你哥支持。'], style: 'normal' },
+    { lines: ['好了。', '', '乙鸣！！', '$$CLIMAX$$9岁生日快乐！！！🎂🎉🚀'], style: 'climax' },
+    { lines: ['—— 你哥', '2026.06.02', '西安交通大学'], style: 'signature' },
+  ];
+
+  var gIdx = 0;
+  function showGroup() {
+    if (gIdx >= groups.length) {
+      // Show map after all text
+      setTimeout(showMap, 3000);
+      return;
+    }
+    var g = groups[gIdx];
+    var div = document.createElement('div');
+    div.className = 'final-group';
+    if (g.style === 'signature') div.classList.add('signature-text');
+    g.lines.forEach(function(line) {
+      var p = document.createElement('p');
+      if (line.indexOf('$$CLIMAX$$') === 0) {
+        p.innerHTML = '<span class="climax-text" id="climax-nine">' + line.replace('$$CLIMAX$$', '') + '</span>';
+      } else {
+        p.textContent = line || '\u00A0';
+      }
+      div.appendChild(p);
+    });
+    textsArea.appendChild(div);
+    setTimeout(function() { div.classList.add('shown'); }, 50);
+    gIdx++;
+    var sc = textsArea.closest('.scene-content');
+    if (sc) setTimeout(function() { sc.scrollTop = sc.scrollHeight; }, 100);
+    setTimeout(showGroup, 1200);
+  }
+  setTimeout(showGroup, 500);
+}
+
+function showMap() {
+  var mapContainer = document.getElementById('china-map-container');
+  mapContainer.classList.add('visible');
+
+  // Trigger SVG animations
+  setTimeout(function() {
+    document.getElementById('arc-anim').beginElement();
+    document.getElementById('dot-anim').beginElement();
+    document.getElementById('dot-opacity-anim').beginElement();
+  }, 500);
+
+  // Easter egg 4: click "9岁" 3 times
+  setTimeout(function() {
+    var cn = document.getElementById('climax-nine');
+    if (cn) {
+      cn.onclick = function() {
+        nineClickCount++;
+        if (nineClickTimer) clearTimeout(nineClickTimer);
+        nineClickTimer = setTimeout(function() { nineClickCount = 0; }, 2000);
+        if (nineClickCount >= 3) {
+          nineClickCount = 0;
+          var s = getState();
+          if (s.eggsFound.indexOf('egg4') === -1) {
+            // Star vortex effect
+            for (var i = 0; i < 30; i++) {
+              var angle = Math.random()*Math.PI*2;
+              var r = 100+Math.random()*100;
+              var cx = window.innerWidth/2, cy = window.innerHeight/2;
+              particles.push({x:cx+Math.cos(angle)*r, y:cy+Math.sin(angle)*r, vx:-Math.cos(angle)*2, vy:-Math.sin(angle)*2, a:1, r:2, life:1.5, age:0, color:'#fbbf24'});
+            }
+            saveEasterEgg('egg4');
+          }
+        }
+      };
+    }
+  }, 5000);
+
+  // Auto advance to wish
+  setTimeout(function() {
+    saveProgress('wish');
+    startScene('wish');
+  }, 10000);
+}
+
+// ==================== SCENE: WISH ====================
+function initWishScene() {
+  document.getElementById('status-bar').classList.remove('visible');
+  document.getElementById('progress-bar').classList.remove('visible');
+
+  var entry = document.getElementById('wish-entry');
+  var wishCard = document.getElementById('wish-card');
+  var resultArea = document.getElementById('wish-result-area');
+  var endingText = document.getElementById('ending-text');
+  entry.innerHTML = '';
+  wishCard.style.display = 'none';
+  resultArea.style.display = 'none';
+  resultArea.innerHTML = '';
+  endingText.style.display = 'none';
+  endingText.innerHTML = '';
+
+  // Egg5 trigger shows the wish card
+  document.getElementById('egg5-trigger').onclick = function() {
+    var s = getState();
+    if (s.eggsFound.indexOf('egg5') === -1) { saveEasterEgg('egg5'); }
+    wishCard.style.display = 'block';
+    wishCard.classList.add('fade-in-up');
+    document.getElementById('egg5-trigger').style.display = 'none';
+  };
+
+  // Also show wish card from entry area after brief intro
+  var introLines = ['最后一件事。', '', '往下拉。'];
+  var idx = 0;
+  function showIntroLine() {
+    if (idx >= introLines.length) {
+      // Auto show wish card after a bit
+      setTimeout(function() {
+        if (wishCard.style.display === 'none') {
+          wishCard.style.display = 'block';
+          wishCard.classList.add('fade-in-up');
+        }
+      }, 2000);
+      return;
+    }
+    var p = document.createElement('p');
+    p.textContent = introLines[idx] || '\u00A0';
+    p.style.opacity = '0'; p.style.transition = 'opacity 0.4s'; p.style.textAlign = 'center';
+    entry.appendChild(p);
+    setTimeout(function() { p.style.opacity = '1'; }, 50);
+    idx++;
+    setTimeout(showIntroLine, 600);
+  }
+  setTimeout(showIntroLine, 500);
+
+  // Send wish
+  document.getElementById('btn-send-wish').onclick = sendWish;
+}
+
+async function sendWish() {
+  var wish = document.getElementById('wish-input').value.trim();
+  if (!wish) { showToast('写点什么再发送吧', 1500); return; }
+  var btn = document.getElementById('btn-send-wish');
+  btn.disabled = true; btn.textContent = '发送中...';
+
+  try {
+    var state = getState();
+    var response = await fetch(CONFIG.WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        wish: wish,
+        timestamp: new Date().toISOString(),
+        gameData: {
+          totalTime: (state.endTime || Date.now()) - (state.startTime || Date.now()),
+          wrongCount: state.wrongCount,
+          gameScore: state.gameScore,
+          hiddenCompleted: state.hiddenCompleted,
+          eggsFound: state.eggsFound
+        }
+      })
+    });
+    var data = await response.json();
+    if (response.ok && data.ok) {
+      setState({ wishSent: true, wish: wish });
+      showWishSuccess();
+    } else { throw new Error(data.error || 'send_failed'); }
+  } catch (e) {
+    console.error(e);
+    setState({ wish: wish });
+    showWishSuccessFallback();
+  }
+}
+
+function showWishSuccess() {
+  var wishCard = document.getElementById('wish-card');
+  wishCard.style.display = 'none';
+  var resultArea = document.getElementById('wish-result-area');
+  resultArea.style.display = 'block';
+  resultArea.innerHTML = '<div class="card card-aurora" style="text-align:center;"><p style="font-size:24px;">✨ 愿望已发送至西安！</p><p style="margin-top:12px;">收到了。尽力。</p><p class="wish-code font-mono">兑换码：GG-LOVES-YIMING-0602</p><p style="font-size:12px;color:var(--silver-400);">（截图保存，见面时出示）</p></div>';
+  resultArea.classList.add('fade-in');
+  setTimeout(showEnding, 3000);
+}
+
+function showWishSuccessFallback() {
+  var wishCard = document.getElementById('wish-card');
+  wishCard.style.display = 'none';
+  var resultArea = document.getElementById('wish-result-area');
+  resultArea.style.display = 'block';
+  resultArea.innerHTML = '<div class="card card-aurora" style="text-align:center;"><p style="font-size:24px;">✨ 愿望已记录！</p><p style="margin-top:12px;">收到了。尽力。</p><p class="wish-code font-mono">兑换码：GG-LOVES-YIMING-0602</p><p style="font-size:12px;color:var(--silver-400);">📸 把愿望截图发给你哥，他才看得到。</p></div>';
+  resultArea.classList.add('fade-in');
+  setTimeout(showEnding, 3000);
+}
+
+function showEnding() {
+  var endingEl = document.getElementById('ending-text');
+  endingEl.style.display = 'block';
+  var lines = ['好了，这个页面到头了。', '', '乙鸣，9岁快乐。', '下次见。👊', '', '🌌'];
+  endingEl.innerHTML = '';
+  lines.forEach(function(line, i) {
+    var p = document.createElement('p');
+    p.textContent = line || '\u00A0';
+    p.style.opacity = '0'; p.style.transition = 'opacity 0.5s';
+    endingEl.appendChild(p);
+    setTimeout(function() { p.style.opacity = '1'; }, i * 600);
+  });
+}
+
+// ==================== SCENE INIT MAP ====================
+var sceneInitMap = {
+  password: initPasswordScene,
+  dna: initDnaScene,
+  briefing: initBriefingScene,
+  level1: initLevel1Scene,
+  level2: initLevel2Scene,
+  minigame: initMinigameScene,
+  level3: initLevel3Scene,
+  level4: initLevel4Scene,
+  level5: initLevel5Scene,
+  merge: initMergeScene,
+  hidden: initHiddenScene,
+  certificate: initCertificateScene,
+  cake: initCakeScene,
+  fireworks: initFireworksScene,
+  final: initFinalScene,
+  wish: initWishScene
+};
+
+// ==================== RESUME ====================
+function showResumeDialog(sceneId) {
+  var overlay = document.getElementById('resume-overlay');
+  overlay.style.display = 'flex';
+  var name = sceneNames[sceneId] || sceneId;
+  document.getElementById('resume-detail').textContent = 'LAST · ' + name;
+
+  document.getElementById('btn-resume').onclick = function() {
+    overlay.style.display = 'none';
+    startScene(sceneId);
+  };
+  document.getElementById('btn-restart').onclick = function() {
+    clearAllData();
+    overlay.style.display = 'none';
+    startScene('password');
+  };
+}
+
+// ==================== INIT ====================
+function init() {
+  initCanvas();
+  initClickParticles();
+  if (hasProgress()) {
+    showResumeDialog(getState().currentScene);
+  } else {
+    startScene('password');
+  }
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
