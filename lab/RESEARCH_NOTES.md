@@ -35,6 +35,21 @@ independent pass + blind chair：每个席位的 stdout/stderr、prompt、失败
 `--max-seats`、`--workers`、`--timeout-seconds`，默认 12 席，不默认跑满 66 席；
 `--execute` 也必须显式提供。
 
+## X 上的补充经验
+
+- [nyk 的讨论](https://x.com/nykdotdev/status/2087778387742130302)把 subagent
+  定义成“压缩/扇出”工具，并提醒只有在确实需要跨 agent 协作时才支付 coordination
+  tax；这对应本实现的并行首轮与单主席汇总。
+- [Walden 的讨论](https://x.com/walden_yan/status/2047054554433462360)强调主循环
+  持有状态、worker 尽量无状态；这里因此不让席位共享 memory，而把状态落到可审计
+  的 run directory。
+- [Josh Rosen 的讨论](https://x.com/JoshARosen/status/2087944178558791874)把递归
+  subagent 看成有依赖和错误传播半径的图；这里不默认递归 spawn，且把主席作为唯一
+  高影响汇聚节点，配 reviewer 与人工门禁。
+- [Akshay 的讨论](https://x.com/akshay_pachaar/status/2035986229687451723)强调
+  每个 subagent 应有专门 system prompt、工具和模型偏好；本实现把每个 skill 的
+  brief、独立 home 和只读边界绑定在 seat 上。
+
 ## 没有采用的做法
 
 - 没有把所有席位的回答提前塞进彼此的 context；那会破坏独立性；
