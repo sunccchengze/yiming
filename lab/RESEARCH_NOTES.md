@@ -71,3 +71,17 @@ chair: one separate DeepTutor process reads the anonymous packet and review note
 output: recommendation + trade-offs + strongest dissent + evidence gaps + reversible experiment
 recovery: completed seat logs are reusable with --resume; failed seats remain explicit
 ```
+
+## 实现后的审计补强
+
+- roster ID 由 `kind + relative_path + file_sha256` 确定，不依赖枚举顺序；每行同时保存
+  Git branch、tip commit、dirty state、文件 hash 和人物 lens disclaimer。
+- `isolation-audit.json` 保存每个 seat 的 prompt hash、共同上下文 hash、独立 cwd、
+  独立 `DEEPTUTOR_HOME` 和 `peer_output_injected=false`。这证明 adapter 没有把 peer
+  文本注入首轮；它不是操作系统级 sandbox，所以工具/provider 的真正权限仍要另行审计。
+- 原始输出先留在 seat 私有目录，再经过身份字符串去标识才进入 `blind-packet.json`；
+  P### 到真实 seat 的映射单独放在 `blind-map.json`，不会传给 reviewer 或 chair。
+- ballot 使用明确权重但不把缺字段补成 0；`decision-record.json` 和
+  `quality-gates.json` 把解析失败、少数意见、证据缺口和人工门禁保留为可检查状态。
+- retry 不是默认行为。`--max-attempts` 和 `--max-calls` 都写入 run manifest；每个
+  attempt 独立保存 stdout/stderr/状态，`--resume` 只复用成功 seat 的 stdout。

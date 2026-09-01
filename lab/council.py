@@ -12,6 +12,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import subprocess
 from typing import Any, Iterable
 
 
@@ -34,6 +35,13 @@ class Seat:
     lines: int
     declared_name: str | None
     description: str | None
+    # These fields make a roster row explainable and reproducible even when
+    # two checkouts contain the same logical skill path.
+    source_branch: str = "unknown"
+    source_commit: str = "unknown"
+    source_dirty: bool | None = None
+    lens_policy: str = "analytical_lens"
+    stable_id_basis: str = "kind + relative_path + file_sha256"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -70,6 +78,7 @@ def discover_roster(
 
     seats: list[Seat] = []
     used_ids: set[str] = set()
+    provenance_by_root = {root: _git_provenance(root) for root, _ in candidates.values()}
     for relative, (root, path) in sorted(candidates.items()):
         try:
             text = path.read_text(encoding="utf-8")
@@ -80,12 +89,12 @@ def discover_roster(
         kind = _classify(relative, parent)
         declared_name = _frontmatter_value(text, "name")
         display_name = declared_name or _humanize(parent)
-        base = f"{kind}-{_slug(display_name)}-{digest[:8]}"
-        seat_id = base
-        suffix = 2
-        while seat_id in used_ids:
-            seat_id = f"{base}-{suffix}"
-            suffix += 1
+        # Include the logical path in the deterministic identity so adding a
+        # second similarly named lens cannot renumber existing seats.
+        identity = hashlib.sha256(
+            f"{kind}\0{relative}\0{digest}".encode("utf-8")
+        ).hexdigest()[:12]
+        seat_id = f"{kind}-{_slug(display_name)}-{identity}"
         used_ids.add(seat_id)
         seats.append(
             Seat(
@@ -100,6 +109,14 @@ def discover_roster(
                 lines=len(text.splitlines()),
                 declared_name=declared_name,
                 description=_frontmatter_value(text, "description"),
+                source_branch=provenance_by_root[root]["branch"],
+                source_commit=provenance_by_root[root]["commit"],
+                source_dirty=provenance_by_root[root]["dirty"],
+                lens_policy=(
+                    "analytical_person_lens_not_person_statement"
+                    if kind == "person"
+                    else "distilled_book_or_method_lens"
+                ),
             )
         )
 
@@ -116,6 +133,11 @@ def roster_summary(seats: Iterable[Seat], mode: str) -> dict[str, Any]:
         "books": sum(seat.kind == "book" for seat in items),
         "people": sum(seat.kind == "person" for seat in items),
         "methods": sum(seat.kind == "method" for seat in items),
+        "provenance": {
+            "git_rows": sum(seat.source_commit not in {"", "unknown", "not-a-git-repo"} for seat in items),
+            "dirty_rows": sum(seat.source_dirty is True for seat in items),
+            "unknown_rows": sum(seat.source_commit in {"", "unknown", "not-a-git-repo"} for seat in items),
+        },
         "seats": [seat.to_dict() for seat in items],
     }
 
@@ -179,4 +201,35 @@ def _frontmatter_value(text: str, key: str) -> str | None:
     if not match:
         return None
     value = match.group(1).strip().strip('"\'')
+    return value or None
+
+
+def _git_provenance(root: Path) -> dict[str, Any]:
+    """Read branch, tip commit, and dirty state without mutating the checkout."""
+
+    branch = _git_value(root, ["branch", "--show-current"])
+    commit = _git_value(root, ["rev-parse", "HEAD"])
+    if not commit:
+        return {"branch": "not-a-git-repo", "commit": "not-a-git-repo", "dirty": None}
+    return {
+        "branch": branch or "detached",
+        "commit": commit,
+        "dirty": bool(_git_value(root, ["status", "--porcelain", "--untracked-files=all"])),
+    }
+
+
+def _git_value(root: Path, args: list[str]) -> str | None:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(root), *args],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if completed.returncode != 0:
+        return None
+    value = (completed.stdout or "").strip()
     return value or None

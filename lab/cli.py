@@ -86,6 +86,8 @@ def build_parser() -> argparse.ArgumentParser:
     council_prepare.add_argument("--reviewer-count", type=int, default=3, help="0 disables blind reviewer calls; max 3")
     council_prepare.add_argument("--source-pack")
     council_prepare.add_argument("--seat-excerpt-chars", type=int, default=12_000)
+    council_prepare.add_argument("--max-attempts", type=int, default=1, help="retry failed/timeout calls up to this many times; default 1")
+    council_prepare.add_argument("--max-calls", type=int, help="hard worst-case call budget; preparation refuses to exceed it")
     council_prepare.add_argument("--task", default=DEFAULT_TASK)
     council_prepare.add_argument("--run-id")
     council_prepare.add_argument("--allow-repo-output", action="store_true")
@@ -97,6 +99,8 @@ def build_parser() -> argparse.ArgumentParser:
     council_run.add_argument("--workers", type=int, default=8)
     council_run.add_argument("--max-seats", type=int, default=None)
     council_run.add_argument("--timeout-seconds", type=int, default=900)
+    council_run.add_argument("--max-attempts", type=int, help="override the manifest retry limit")
+    council_run.add_argument("--max-calls", type=int, help="hard worst-case call budget for this invocation")
     council_run.add_argument("--resume", action="store_true", help="reuse completed seat outputs and rerun only missing/failed seats")
     council_run.add_argument("--deeptutor-bin", default="deeptutor")
     council_run.set_defaults(handler=_handle_council_run)
@@ -233,6 +237,8 @@ def _handle_council_prepare(args: argparse.Namespace) -> int:
         reviewer_count=args.reviewer_count,
         source_pack=args.source_pack,
         seat_excerpt_chars=args.seat_excerpt_chars,
+        max_attempts=args.max_attempts,
+        max_calls=args.max_calls,
         allow_repo_output=args.allow_repo_output,
         run_id=args.run_id,
     )
@@ -249,6 +255,8 @@ def _handle_council_run(args: argparse.Namespace) -> int:
         timeout_seconds=args.timeout_seconds,
         deeptutor_bin=args.deeptutor_bin,
         resume=args.resume,
+        max_attempts=args.max_attempts,
+        max_calls=args.max_calls,
     )
     print(json.dumps(_public_run_summary(result), ensure_ascii=False, indent=2))
     return 0
@@ -299,8 +307,10 @@ def _public_council_summary(manifest: dict[str, Any]) -> dict[str, Any]:
             "books": manifest["roster"]["books"],
             "people": manifest["roster"]["people"],
             "methods": manifest["roster"]["methods"],
+            "provenance": manifest["roster"].get("provenance", {}),
         },
         "execution": manifest["execution"],
+        "artifacts": manifest["artifacts"],
         "next": "run `python -m lab council run --run <output>` for dry-run; add --execute only after configuring DeepTutor",
     }
 
@@ -313,6 +323,9 @@ def _public_run_summary(result: dict[str, Any]) -> dict[str, Any]:
             "seat_count": result["seat_count"],
             "reviewer_count": result.get("reviewer_count", 0),
             "expected_calls": result.get("expected_calls"),
+            "max_attempts": result.get("max_attempts"),
+            "worst_case_calls": result.get("worst_case_calls"),
+            "max_calls": result.get("max_calls"),
             "seat_commands": len(result["commands"]),
             "chair_command_present": bool(result.get("chair_command")),
             "next": "add --execute after installing/configuring DeepTutor",
@@ -328,5 +341,7 @@ def _public_run_summary(result: dict[str, Any]) -> dict[str, Any]:
             for item in result.get("reviewer_results", [])
         ],
         "chair": {key: value for key, value in result.get("chair", {}).items() if key != "command"},
-        "next": "inspect blind-packet.json, chair/final.md, dissent, and quality gates before acting",
+        "decision_record": result.get("decision_record"),
+        "quality_gates": result.get("quality_gates"),
+        "next": "inspect blind-packet.json, chair/final.md, decision-record.json, dissent, and quality gates before acting",
     }

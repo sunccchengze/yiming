@@ -120,9 +120,12 @@ python -m lab council run \
 
 席位阶段是 `N` 次并行调用，接着最多 3 次盲 reviewer，最后主席再调用 1 次；
 所以“百人”不是无成本修辞。执行前应先看 `COUNCIL_PLAN.md`，用 `--max-seats`、
-`--reviewer-count` 和 `--workers` 控制预算。每个席位的失败、stderr、stdout 和
-超时都会落在该席位自己的目录里，不会让其他席位看到它的中间结果。中途失败
-后可以加 `--resume`，只重跑缺失/失败的席位，再重新审查 blind packet。
+`--reviewer-count`、`--workers` 和 `--max-calls` 控制预算。默认最多 12 个席位、
+每次调用 1 个 attempt；只有显式设置 `--max-attempts` 才会重试失败/超时调用。
+这只是调用数/超时预算，不等于 provider 的 token 账单；通用 CLI 没有可靠的跨模型
+token 计量，因此不伪造成本数字。每个席位的失败、stderr、stdout 和每次 attempt
+都会落在该席位自己的目录里，不会让其他席位看到它的中间结果。中途失败后可以
+加 `--resume`，只重跑缺失/失败的席位，再重新审查 blind packet。
 
 ## 目录与制品
 
@@ -137,12 +140,19 @@ python -m lab council run \
 │   └── stderr.log           # 失败/诊断
 ├── runtime/seats/<seat-id>/ # 每席位独立 DEEPTUTOR_HOME
 ├── blind-packet.json        # 去姓名后的提案，供 reviewer/主席读取
+├── blind-map.json            # 本地私有 P### ↔ seat 映射；不传给 reviewer/主席
 ├── reviewers/<reviewer-id>/ # evidence / dissent / action reviewer
 ├── reviewer-results.json
-├── DISSENT_LEDGER.md        # 少数意见、反例和未决问题
+├── reviewer-ballots.json     # reviewer 结构化审查（缺字段不补）
+├── ballots.json               # seat 结构化 ballot 与透明加权分数
+├── DISSENT_LEDGER.md          # 少数意见、反例和未决问题
+├── decision-record.json       # 从主席原文提取的共识/异议/证据/实验记录
+├── quality-gates.json         # 协议与输出结构门禁；仍需人工 review
+├── isolation-audit.json       # 输入 hash、cwd、DEEPTUTOR_HOME、peer withheld 证据
 ├── chair/
 │   ├── prompt.md
 │   ├── stdout.log
+│   ├── attempt-*/
 │   └── final.md
 └── result.json
 ```
@@ -154,6 +164,20 @@ Yiming Lab 的普通 source pack 还包含：
 - `research/EVIDENCE_TABLE.md`、`CLAIM_SOURCE_MAP.md`：证据和 claim 门禁；
 - `source-pack/_skills/`：仅选中的 policy skill 副本及 hash；
 - `integrations/openwiki-git-repo-config.json`：只包含本地路径，不包含 secret。
+
+## 结构化输出怎样被解释
+
+`ballots.json` 只在 seat 自己提供 `<ballot>` JSON 且字段完整时计算透明分数：
+`evidence=35%`、`expected_value=20%`、`reversibility=20%`、
+`actionability=25%`，每项 0–5。`confidence` 单独保存，不参与“事实可信度”
+计算；缺字段不会被当成 0，也不会被当成反对。`decision-record.json` 从主席原文
+提取以下人工可读字段：共识、最强少数意见、证据缺口、可逆实验、停止条件和置信度。
+解析失败就写入 `missing_sections`，而不是生成一个看似完整的结论。
+
+`quality-gates.json` 会检查 roster provenance、首轮 prompt 是否夹带 peer output、
+blind packet 是否泄漏 seat 身份、reviewer 是否齐全和主席 memo 是否具备必需段落。
+它的 `pass` 只代表协议/制品检查通过，绝不代表建议正确；`DISSENT_LEDGER.md`
+仍要求用户在任何外部行动前阅读并批准。
 
 ## 用到的 skill 及其边界
 
@@ -168,9 +192,12 @@ Yiming Lab 的普通 source pack 还包含：
 | 审查 | `QUALITY_GATES` | 事实、接口、隐私、许可、运行证据和交付检查 |
 | 协调 | `universal-skill-router` | 将任务压缩到最小技能组，不加载整个 skill 仓库 |
 
-`run.json` 会记录每个入口文件的 SHA-256、字节数、行数和实际来源路径。准备
-阶段只读 `SKILL.md`，不自动执行其中的脚本。席位 brief 把 skill 内容放在
-`<lens-reference>` 边界内，当作参考材料而不是可执行指令。
+`run.json` 会记录每个入口文件的 SHA-256、字节数、行数和实际来源路径，以及选中
+policy skill 的 Git branch、tip commit 和 dirty state；`roster.json` 还记录每席位的
+稳定 ID 规则、Git branch、tip commit 和 dirty state。
+准备阶段只读 `SKILL.md`，不自动执行其中的脚本。席位 brief 把 skill 内容放在
+`<lens-reference>` 边界内，当作参考材料而不是可执行指令。人物席位还带有
+`analytical_person_lens_not_person_statement` 标记，不能被解读为真人本人发言。
 
 ## 上游来源与改动边界
 
@@ -200,14 +227,17 @@ Yiming Lab 的普通 source pack 还包含：
 ## 局限与未验证项
 
 - Arena 没有原生 subagent 工具，所以当前后端是 DeepTutor CLI 进程，不是平台级
-  subagent；
-- 本仓库已验证 roster、prompt 隔离、盲包结构、私有输出和无 key dry-run；
+  subagent；`isolation-audit.json` 是 adapter 边界的可审计证明，不宣称 OS sandbox；
+- 本仓库已验证 roster provenance、prompt 隔离、身份去标识盲包、结构化 ballot、
+  私有输出、调用预算和无 key dry-run；
 - 尚未在本环境用真实 provider 跑完 66 个 DeepTutor 席位；这需要用户自己的
   provider 配置并会产生模型费用；
 - OpenWiki npm CLI 已在 Node 22 环境显示帮助，但本地 `better-sqlite3` 安装
   需要可用 headers/build tool；
-- “百人圆桌”首个版本是独立提案 + 匿名主席，不是 66 个 agent 互相聊天；这是
-  有意选择的抗锚定协议，后续可以加入受限的反驳轮，但不能默认打开。
+- “百人圆桌”首个版本是独立提案 + 匿名 reviewer + 匿名主席，不是 66 个 agent
+  互相聊天；这是有意选择的抗锚定协议，后续可以加入受限的反驳轮，但不能默认打开；
+- 结构化 ballot 是模型自报的决策支持指标，只有字段完整时才计算加权分数；它不是
+  事实可信度、投票胜负或真人意志的替代品；
 
 ## 验证
 

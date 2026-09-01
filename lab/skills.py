@@ -12,6 +12,7 @@ import hashlib
 import os
 from pathlib import Path
 import re
+import subprocess
 from typing import Any, Iterable
 
 
@@ -75,6 +76,9 @@ class ResolvedSkill:
     declared_name: str | None
     description: str | None
     why: str
+    source_branch: str = "unknown"
+    source_commit: str = "unknown"
+    source_dirty: bool | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -101,6 +105,11 @@ def resolve_selected_skills(
     perspective_root: str | Path | None = None,
 ) -> list[ResolvedSkill]:
     roots = candidate_roots(skill_root, perspective_root)
+    provenance = {
+        kind: _git_provenance(root)
+        for kind, root in roots.items()
+        if root is not None
+    }
     resolved: list[ResolvedSkill] = []
     for spec in SKILL_SPECS:
         root = roots[spec["root"]]
@@ -152,6 +161,9 @@ def resolve_selected_skills(
                 declared_name=_frontmatter_value(text, "name"),
                 description=_frontmatter_value(text, "description"),
                 why=spec["why"],
+                source_branch=provenance[spec["root"]]["branch"],
+                source_commit=provenance[spec["root"]]["commit"],
+                source_dirty=provenance[spec["root"]]["dirty"],
             )
         )
     return resolved
@@ -172,6 +184,11 @@ def skill_status_summary(skills: Iterable[ResolvedSkill]) -> dict[str, Any]:
         "selected": len(items),
         "loaded": sum(item.status == "loaded" for item in items),
         "missing": [item.name for item in items if item.status != "loaded"],
+        "provenance": {
+            "git_rows": sum(item.source_commit not in {"", "unknown", "not-a-git-repo"} for item in items),
+            "dirty_rows": sum(item.source_dirty is True for item in items),
+            "unknown_rows": sum(item.source_commit in {"", "unknown", "not-a-git-repo"} for item in items),
+        },
         "items": [item.to_dict() for item in items],
     }
 
@@ -212,4 +229,33 @@ def _frontmatter_value(text: str, key: str) -> str | None:
     if not match:
         return None
     value = match.group(1).strip().strip('"\'')
+    return value or None
+
+
+def _git_provenance(root: Path) -> dict[str, Any]:
+    branch = _git_value(root, ["branch", "--show-current"])
+    commit = _git_value(root, ["rev-parse", "HEAD"])
+    if not commit:
+        return {"branch": "not-a-git-repo", "commit": "not-a-git-repo", "dirty": None}
+    return {
+        "branch": branch or "detached",
+        "commit": commit,
+        "dirty": bool(_git_value(root, ["status", "--porcelain", "--untracked-files=all"])),
+    }
+
+
+def _git_value(root: Path, args: list[str]) -> str | None:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(root), *args],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if completed.returncode != 0:
+        return None
+    value = (completed.stdout or "").strip()
     return value or None

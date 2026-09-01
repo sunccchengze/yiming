@@ -3,11 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import stat
+import subprocess
 import tempfile
 import unittest
 
 from .council import discover_roster
-from .council_protocol import prepare_council, run_council
+from .council_protocol import _build_blind_packet, prepare_council, run_council
+from .council_records import extract_sections, parse_ballot
 from .pipeline import PreparationError, prepare_run
 from .routing import route_task
 
@@ -38,6 +40,91 @@ class LabAdapterTests(unittest.TestCase):
             self.assertEqual(len(seats), 2)
             self.assertEqual({seat.kind for seat in seats}, {"book", "person"})
             self.assertEqual(len({seat.seat_id for seat in seats}), 2)
+
+    def test_roster_records_git_provenance_and_lens_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skill = root / "skills/community/nuwa-distilled/feynman-perspective/SKILL.md"
+            skill.parent.mkdir(parents=True, exist_ok=True)
+            skill.write_text("---\nname: feynman\n---\nAsk for evidence.\n", encoding="utf-8")
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.email", "test@example.invalid"], check=True)
+            subprocess.run(["git", "-C", str(root), "config", "user.name", "Test"], check=True)
+            subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+            subprocess.run(["git", "-C", str(root), "commit", "-qm", "fixture"], check=True)
+            seat = discover_roster([root], mode="people-books")[0]
+            self.assertRegex(seat.source_commit, r"^[0-9a-f]{40}$")
+            self.assertTrue(seat.source_branch in {"main", "master"} or seat.source_branch)
+            self.assertFalse(seat.source_dirty)
+            self.assertEqual(seat.lens_policy, "analytical_person_lens_not_person_statement")
+
+    def test_structured_ballot_and_chair_headings_never_impute_missing_fields(self) -> None:
+        ballot = parse_ballot(
+            "<ballot>{\"stance\":\"conditional\",\"preferred_option\":\"pilot\","
+            "\"confidence\":0.75,\"scores\":{\"evidence\":4,\"expected_value\":3,"
+            "\"reversibility\":5,\"actionability\":4}}</ballot>"
+        )
+        self.assertEqual(ballot["parse_status"], "parsed")
+        self.assertEqual(ballot["weighted_score"], 0.8)
+        missing = parse_ballot("A memo without a machine ballot")
+        self.assertIsNone(missing["weighted_score"])
+        self.assertIn("stance", missing["missing_fields"])
+        sections = extract_sections(
+            "1. Consensus and convergence\nA\n"
+            "2. Strongest dissent and why it might be right\nB\n"
+            "3. Small reversible next experiment\nC\n"
+        )
+        self.assertEqual(sections["consensus"], "A")
+        self.assertEqual(sections["strongest_dissent"], "B")
+        self.assertEqual(sections["next_experiment"], "C")
+
+    def test_blind_packet_redacts_lens_identity_but_keeps_private_map(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skill = root / "skills/community/nuwa-distilled/book-test/SKILL.md"
+            skill.parent.mkdir(parents=True, exist_ok=True)
+            skill.write_text("---\nname: book-test\n---\nBounded lens.\n", encoding="utf-8")
+            output = root / "council"
+            prepare_council(output, skill_roots=[root], max_seats=0, reviewer_count=0)
+            seat = discover_roster([root], mode="people-books")[0]
+            stdout = output / "seats" / seat.seat_id / "stdout.log"
+            stdout.write_text(f"I am the {seat.display_name} lens; recommend a pilot.", encoding="utf-8")
+            blind, private_map = _build_blind_packet(
+                output,
+                [seat],
+                [{"seat_id": seat.seat_id, "status": "completed", "stdout_path": str(stdout)}],
+            )
+            self.assertNotIn(seat.display_name, blind["proposals"][0]["response"])
+            self.assertEqual(private_map["mapping"][0]["display_name"], seat.display_name)
+
+    def test_prepare_records_isolation_and_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skill = root / "skills/community/nuwa-distilled/book-test/SKILL.md"
+            skill.parent.mkdir(parents=True, exist_ok=True)
+            skill.write_text("---\nname: test\n---\nBounded lens.\n", encoding="utf-8")
+            output = root / "council"
+            manifest = prepare_council(
+                output,
+                skill_roots=[root],
+                max_seats=0,
+                reviewer_count=2,
+                max_attempts=2,
+                max_calls=8,
+            )
+            audit = json.loads((output / "isolation-audit.json").read_text(encoding="utf-8"))
+            self.assertFalse(audit["peer_outputs_available_at_prompt_creation"])
+            self.assertFalse(audit["seat_inputs"][0]["peer_output_injected"])
+            self.assertEqual(manifest["execution"]["worst_case_calls"], 8)
+            with self.assertRaises(ValueError):
+                prepare_council(
+                    root / "too-small",
+                    skill_roots=[root],
+                    max_seats=0,
+                    reviewer_count=2,
+                    max_attempts=2,
+                    max_calls=7,
+                )
 
     def test_prepare_is_private_and_scans_opted_in_corpus(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -179,9 +266,17 @@ class LabAdapterTests(unittest.TestCase):
             self.assertEqual(len(homes), 2)
             self.assertTrue(all("runtime/seats" in home for home in homes))
             self.assertEqual(len(result["reviewer_results"]), 3)
+            self.assertTrue(all(item["cwd"].endswith(item["reviewer_id"]) for item in result["reviewer_results"]))
             blind = json.loads((output / "blind-packet.json").read_text(encoding="utf-8"))
             self.assertEqual(len(blind["proposals"]), 2)
             self.assertNotIn("display_name", blind["proposals"][0])
+            self.assertNotIn("seat_id", blind["proposals"][0])
+            self.assertTrue((output / "blind-map.json").is_file())
+            self.assertTrue((output / "ballots.json").is_file())
+            self.assertTrue((output / "reviewer-ballots.json").is_file())
+            self.assertTrue((output / "decision-record.json").is_file())
+            self.assertTrue((output / "quality-gates.json").is_file())
+            self.assertTrue((output / "isolation-audit.json").is_file())
             self.assertTrue((output / "DISSENT_LEDGER.md").is_file())
             self.assertTrue((output / "chair" / "final.md").is_file())
             resumed = run_council(

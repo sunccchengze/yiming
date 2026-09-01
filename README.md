@@ -36,6 +36,8 @@ python -m lab council run \
   --run "$HOME/.local/share/yiming-lab/councils/<run-id>"
 ```
 
-只有明确添加 `--execute` 才会调用 DeepTutor；完整安装、OpenWiki 接入、隐私边界和
-66 席全量运行方式见 [`lab/README.md`](lab/README.md)。私有 run 默认写到 Git
-checkout 之外，不进入本仓库版本历史。
+只有明确添加 `--execute` 才会调用 DeepTutor；默认 `--max-seats 12`，可显式改成
+24 或 `0`（全部匹配席位），但每次调用数、超时和重试上限都必须纳入预算。完整安装、
+OpenWiki 接入、匿名审计、结构化 ballot、质量门禁和 66 席全量运行方式见
+[`lab/README.md`](lab/README.md)。私有 run 默认写到 Git checkout 之外，不进入本仓库
+版本历史。
