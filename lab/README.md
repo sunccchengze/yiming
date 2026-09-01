@@ -127,6 +127,36 @@ token 计量，因此不伪造成本数字。每个席位的失败、stderr、st
 都会落在该席位自己的目录里，不会让其他席位看到它的中间结果。中途失败后可以
 加 `--resume`，只重跑缺失/失败的席位，再重新审查 blind packet。
 
+### 5b. 用任意模型 runner（不依赖 DeepTutor）
+
+如果不用 DeepTutor，可以用 `--runner` 指定一个 shell 命令模板来驱动每个
+席位/reviewer/chair，例如你的 Claude Code harness + DeepSeek：
+
+```bash
+# 方式 B：Claude Code CLI 指向 DeepSeek
+export ANTHROPIC_BASE_URL="https://api.deepseek.com/anthropic"
+export ANTHROPIC_AUTH_TOKEN="$DEEPSEEK_API_KEY"
+export ANTHROPIC_MODEL="deepseek-chat"
+
+python -m lab council run \
+  --run "<run-id>" \
+  --execute \
+  --runner "$(pwd)/lab/examples/runner-claude-deepseek.sh" \
+  --workers 4 --timeout-seconds 900
+```
+
+`--runner` 是一个 shell 模板，占位符：
+
+- `{prompt}` 完整 prompt 文本（shell 转义）
+- `{prompt_file}` prompt .md 的绝对路径
+- `{stage}` `independent-seat` / `blind-reviewer` / `chair`
+
+prompt 同时会通过 stdin 传入，并暴露 `$YIMING_PROMPT_FILE`、`$YIMING_PROMPT_STAGE`，
+方便 wrapper 脚本读取。示例 wrapper 见 `lab/examples/runner-claude-deepseek.sh`。
+默认（不加 `--runner`）仍走 DeepTutor：`deeptutor run chat <prompt> --language zh --format json`。
+
+> 完整启动流程、结果解读与安全边界见 [`lab/RUNBOOK.md`](RUNBOOK.md)。
+
 ## 目录与制品
 
 ```text

@@ -102,7 +102,18 @@ def build_parser() -> argparse.ArgumentParser:
     council_run.add_argument("--max-attempts", type=int, help="override the manifest retry limit")
     council_run.add_argument("--max-calls", type=int, help="hard worst-case call budget for this invocation")
     council_run.add_argument("--resume", action="store_true", help="reuse completed seat outputs and rerun only missing/failed seats")
-    council_run.add_argument("--deeptutor-bin", default="deeptutor")
+    council_run.add_argument("--deeptutor-bin", default="deeptutor", help="binary used in the default deeptutor runner")
+    council_run.add_argument(
+        "--runner",
+        default=None,
+        help=(
+            "shell command template to send each prompt to a model instead of deeptutor. "
+            "Placeholders: {prompt} (full prompt text), {prompt_file} (path to prompt .md), "
+            "{stage} (independent-seat|blind-reviewer|chair). The prompt is also piped to stdin "
+            "and exposed as $YIMING_PROMPT_FILE / $YIMING_PROMPT_STAGE. "
+            "Example: --runner 'claude -p {prompt} --output-format text'"
+        ),
+    )
     council_run.set_defaults(handler=_handle_council_run)
 
     return parser
@@ -254,6 +265,7 @@ def _handle_council_run(args: argparse.Namespace) -> int:
         max_seats=args.max_seats,
         timeout_seconds=args.timeout_seconds,
         deeptutor_bin=args.deeptutor_bin,
+        runner=args.runner,
         resume=args.resume,
         max_attempts=args.max_attempts,
         max_calls=args.max_calls,
@@ -326,6 +338,7 @@ def _public_run_summary(result: dict[str, Any]) -> dict[str, Any]:
             "max_attempts": result.get("max_attempts"),
             "worst_case_calls": result.get("worst_case_calls"),
             "max_calls": result.get("max_calls"),
+            "runner": result.get("runner"),
             "seat_commands": len(result["commands"]),
             "chair_command_present": bool(result.get("chair_command")),
             "next": "add --execute after installing/configuring DeepTutor",

@@ -308,6 +308,56 @@ class LabAdapterTests(unittest.TestCase):
             )
             self.assertTrue(all(item.get("resumed") for item in resumed["seat_results"]))
 
+    def test_custom_runner_template_drives_seats_and_records_filled_command(self) -> None:
+        # The --runner abstraction must let any model CLI power each seat/
+        # reviewer/chair via a shell template with {prompt}, {prompt_file},
+        # and {stage} placeholders (prompt also piped to stdin).
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skill = root / "skills/community/nuwa-distilled/book-one/SKILL.md"
+            skill.parent.mkdir(parents=True, exist_ok=True)
+            skill.write_text("---\nname: book-one\n---\n\nUse reversible experiments.\n", encoding="utf-8")
+            output = root / "council"
+            prepare_council(
+                output,
+                skill_roots=[root],
+                roster_mode="people-books",
+                max_seats=0,
+                task="选择一个可逆实验",
+            )
+            fake = root / "fake-model"
+            fake.write_text(
+                "#!/usr/bin/env python3\n"
+                "import json, os, sys\n"
+                "prompt = sys.stdin.read()\n"
+                "stage = os.environ.get('YIMING_PROMPT_STAGE', 'independent-seat')\n"
+                "# accept the prompt file path from argv to prove placeholder filling\n"
+                "if len(sys.argv) > 1:\n"
+                "    assert os.path.exists(sys.argv[1]), sys.argv[1]\n"
+                "print(json.dumps({'stage': stage, 'prompt_chars': len(prompt)}))\n",
+                encoding="utf-8",
+            )
+            fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+            template = f"{fake} {{prompt_file}}"
+            dry = run_council(output, runner=template)
+            self.assertEqual(dry["status"], "dry-run")
+            self.assertEqual(dry["runner"], template)
+            prompt_path = next((output / "seats").glob("*/prompt.md"))
+            self.assertIn(str(prompt_path), dry["commands"][0])
+            result = run_council(
+                output,
+                execute=True,
+                workers=1,
+                timeout_seconds=10,
+                runner=template,
+            )
+            self.assertEqual(result["status"], "completed")
+            self.assertEqual(len(result["seat_results"]), 1)
+            seat = result["seat_results"][0]
+            # The recorded command is the filled template (includes the prompt file).
+            self.assertIn(str(prompt_path), seat["command"])
+            self.assertEqual(seat["status"], "completed")
+
     def test_private_output_inside_checkout_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 from typing import Any, Iterable
@@ -304,10 +305,22 @@ def run_council(
     max_seats: int | None = None,
     timeout_seconds: int = 900,
     deeptutor_bin: str = "deeptutor",
+    runner: str | None = None,
     resume: bool = False,
     max_attempts: int | None = None,
     max_calls: int | None = None,
 ) -> dict[str, Any]:
+    # runner controls how each seat/reviewer/chair prompt is sent to a model.
+    #   "deeptutor" (default) -> deeptutor run chat <prompt> --language zh --format json
+    #   anything else          -> a shell command template. Recognized placeholders:
+    #        {prompt}      the full prompt text (shell-quoted)
+    #        {prompt_file} path to the generated prompt .md (shell-quoted)
+    #        {stage}       independent-seat | blind-reviewer | chair
+    # The prompt is also piped to the command's stdin and exposed as
+    #   $YIMING_PROMPT_FILE / $YIMING_PROMPT_STAGE so wrappers can read it.
+    # A missing/empty runner means "use deeptutor" (argv mode, honoring
+    # --deeptutor-bin); an explicit --runner is a shell template.
+    runner = (runner or "deeptutor").strip()
     run = load_council(run_path)
     output = Path(run["artifacts"]["roster"]).parent
     seats = [Seat(**row) for row in run["roster"]["seats"]]
@@ -340,10 +353,11 @@ def run_council(
             "max_attempts": attempt_limit,
             "worst_case_calls": worst_case_calls,
             "max_calls": call_limit,
-            "commands": [_seat_command(deeptutor_bin, output, seat) for seat in seats],
-            "chair_command": _chair_command(deeptutor_bin, output),
+            "runner": runner,
+            "commands": [_seat_command(runner, deeptutor_bin, output, seat) for seat in seats],
+            "chair_command": _chair_command(runner, deeptutor_bin, output),
         }
-    if shutil.which(deeptutor_bin) is None:
+    if runner == "deeptutor" and shutil.which(deeptutor_bin) is None:
         raise CouncilError(
             f"{deeptutor_bin!r} is not installed; install DeepTutor first or omit --execute for a dry-run"
         )
@@ -369,6 +383,7 @@ def run_council(
                     output,
                     seat,
                     deeptutor_bin,
+                    runner,
                     timeout_seconds,
                     attempt_limit,
                 ): seat
@@ -387,6 +402,7 @@ def run_council(
         blind,
         reviewer_count,
         deeptutor_bin,
+        runner,
         timeout_seconds,
         attempt_limit,
     )
@@ -403,6 +419,7 @@ def run_council(
         ballots,
         reviewer_ballots,
         deeptutor_bin,
+        runner,
         timeout_seconds,
         attempt_limit,
     )
@@ -449,6 +466,7 @@ def _run_one_seat(
     output: Path,
     seat: Seat,
     deeptutor_bin: str,
+    runner: str,
     timeout_seconds: int,
     max_attempts: int = 1,
 ) -> dict[str, Any]:
@@ -456,7 +474,9 @@ def _run_one_seat(
     seat_output.mkdir(parents=True, exist_ok=True)
     home = output / "runtime" / "seats" / seat.seat_id
     home.mkdir(parents=True, exist_ok=True)
-    command = _seat_command(deeptutor_bin, output, seat)
+    prompt_path = output / "seats" / seat.seat_id / "prompt.md"
+    prompt_text = prompt_path.read_text(encoding="utf-8")
+    command = _seat_command(runner, deeptutor_bin, output, seat)
     env = os.environ.copy()
     env["DEEPTUTOR_HOME"] = str(home)
     env["YIMING_COUNCIL_STAGE"] = "independent-seat"
@@ -468,14 +488,15 @@ def _run_one_seat(
         attempt_dir = seat_output / f"attempt-{attempt_number:02d}"
         attempt_dir.mkdir(parents=True, exist_ok=True)
         try:
-            completed = subprocess.run(
-                command,
+            completed, command = _invoke_runner(
+                runner,
+                deeptutor_bin,
+                prompt_text,
+                prompt_path,
+                stage="independent-seat",
                 cwd=seat_output,
                 env=env,
-                text=True,
-                capture_output=True,
-                timeout=timeout_seconds,
-                check=False,
+                timeout_seconds=timeout_seconds,
             )
             stdout = completed.stdout or ""
             stderr = completed.stderr or ""
@@ -627,6 +648,7 @@ def _run_reviewers(
     blind: dict[str, Any],
     reviewer_count: int,
     deeptutor_bin: str,
+    runner: str,
     timeout_seconds: int,
     max_attempts: int = 1,
 ) -> list[dict[str, Any]]:
@@ -646,6 +668,7 @@ def _run_reviewers(
                 role,
                 instruction,
                 deeptutor_bin,
+                runner,
                 timeout_seconds,
                 max_attempts,
             ): role
@@ -664,6 +687,7 @@ def _run_one_reviewer(
     role: str,
     instruction: str,
     deeptutor_bin: str,
+    runner: str,
     timeout_seconds: int,
     max_attempts: int = 1,
 ) -> dict[str, Any]:
@@ -672,9 +696,11 @@ def _run_one_reviewer(
     reviewer_dir.mkdir(parents=True, exist_ok=True)
     prompt = build_reviewer_prompt(run, blind, role, instruction)
     _atomic_write(reviewer_dir / "prompt.md", prompt)
+    prompt_path = reviewer_dir / "prompt.md"
+    prompt_text = prompt_path.read_text(encoding="utf-8")
     home = output / "runtime" / "reviewers" / reviewer_id
     home.mkdir(parents=True, exist_ok=True)
-    command = _reviewer_command(deeptutor_bin, reviewer_dir)
+    command = _reviewer_command(runner, deeptutor_bin, reviewer_dir)
     env = os.environ.copy()
     env["DEEPTUTOR_HOME"] = str(home)
     env["YIMING_COUNCIL_STAGE"] = "blind-reviewer"
@@ -686,14 +712,15 @@ def _run_one_reviewer(
         attempt_dir = reviewer_dir / f"attempt-{attempt_number:02d}"
         attempt_dir.mkdir(parents=True, exist_ok=True)
         try:
-            completed = subprocess.run(
-                command,
+            completed, command = _invoke_runner(
+                runner,
+                deeptutor_bin,
+                prompt_text,
+                prompt_path,
+                stage="blind-reviewer",
                 cwd=reviewer_dir,
                 env=env,
-                text=True,
-                capture_output=True,
-                timeout=timeout_seconds,
-                check=False,
+                timeout_seconds=timeout_seconds,
             )
             stdout = completed.stdout or ""
             stderr = completed.stderr or ""
@@ -793,17 +820,20 @@ scores are 0 to 5.
 """
 
 
-def _reviewer_command(deeptutor_bin: str, reviewer_dir: Path) -> list[str]:
-    return [
-        deeptutor_bin,
-        "run",
-        "chat",
-        (reviewer_dir / "prompt.md").read_text(encoding="utf-8"),
-        "--language",
-        "zh",
-        "--format",
-        "json",
-    ]
+def _reviewer_command(runner: str, deeptutor_bin: str, reviewer_dir: Path):
+    prompt_path = reviewer_dir / "prompt.md"
+    if runner == "deeptutor":
+        return [
+            deeptutor_bin,
+            "run",
+            "chat",
+            prompt_path.read_text(encoding="utf-8"),
+            "--language",
+            "zh",
+            "--format",
+            "json",
+        ]
+    return _fill_runner(runner, "<prompt from prompt.md>", prompt_path, "blind-reviewer")
 
 
 def _run_chair(
@@ -814,6 +844,7 @@ def _run_chair(
     ballots: list[dict[str, Any]],
     reviewer_ballots: list[dict[str, Any]],
     deeptutor_bin: str,
+    runner: str,
     timeout_seconds: int,
     max_attempts: int = 1,
 ) -> dict[str, Any]:
@@ -823,7 +854,9 @@ def _run_chair(
     chair_home.mkdir(parents=True, exist_ok=True)
     prompt = build_chair_prompt(run, blind, reviewers, ballots, reviewer_ballots)
     _atomic_write(chair_dir / "prompt.md", prompt)
-    command = _chair_command(deeptutor_bin, output)
+    prompt_path = chair_dir / "prompt.md"
+    prompt_text = prompt_path.read_text(encoding="utf-8")
+    command = _chair_command(runner, deeptutor_bin, output)
     env = os.environ.copy()
     env["DEEPTUTOR_HOME"] = str(chair_home)
     env["YIMING_COUNCIL_STAGE"] = "chair"
@@ -835,14 +868,15 @@ def _run_chair(
         attempt_dir = chair_dir / f"attempt-{attempt_number:02d}"
         attempt_dir.mkdir(parents=True, exist_ok=True)
         try:
-            completed = subprocess.run(
-                command,
+            completed, command = _invoke_runner(
+                runner,
+                deeptutor_bin,
+                prompt_text,
+                prompt_path,
+                stage="chair",
                 cwd=chair_dir,
                 env=env,
-                text=True,
-                capture_output=True,
-                timeout=timeout_seconds,
-                check=False,
+                timeout_seconds=timeout_seconds,
             )
             stdout = completed.stdout or ""
             stderr = completed.stderr or ""
@@ -978,28 +1012,104 @@ the user. Do not perform external side effects.
 """
 
 
-def _seat_command(deeptutor_bin: str, output: Path, seat: Seat) -> list[str]:
+def _seat_command(runner: str, deeptutor_bin: str, output: Path, seat: Seat):
     prompt_path = output / "seats" / seat.seat_id / "prompt.md"
-    return [
-        deeptutor_bin,
-        "run",
-        "chat",
-        prompt_path.read_text(encoding="utf-8"),
-        "--language",
-        "zh",
-        "--format",
-        "json",
-    ]
+    if runner == "deeptutor":
+        return [
+            deeptutor_bin,
+            "run",
+            "chat",
+            prompt_path.read_text(encoding="utf-8"),
+            "--language",
+            "zh",
+            "--format",
+            "json",
+        ]
+    return _fill_runner(runner, "<prompt from prompt.md>", prompt_path, "independent-seat")
 
 
-def _chair_command(deeptutor_bin: str, output: Path) -> list[str]:
+def _chair_command(runner: str, deeptutor_bin: str, output: Path):
     prompt_path = output / "chair" / "prompt.md"
-    if not prompt_path.is_file():
-        # The command is only printed in dry-run before the chair prompt exists.
-        prompt = "Read the chair prompt generated by Yiming Council and produce the final memo."
-    else:
-        prompt = prompt_path.read_text(encoding="utf-8")
-    return [deeptutor_bin, "run", "chat", prompt, "--language", "zh", "--format", "json"]
+    if runner == "deeptutor":
+        if not prompt_path.is_file():
+            # The command is only printed in dry-run before the chair prompt exists.
+            prompt = "Read the chair prompt generated by Yiming Council and produce the final memo."
+        else:
+            prompt = prompt_path.read_text(encoding="utf-8")
+        return [deeptutor_bin, "run", "chat", prompt, "--language", "zh", "--format", "json"]
+    return _fill_runner(runner, "<prompt from prompt.md>", prompt_path, "chair")
+
+
+def _fill_runner(template: str, prompt_text: str, prompt_path: Path, stage: str) -> str:
+    """Fill a runner command template with shell-quoted placeholders.
+
+    Recognized placeholders:
+      {prompt}      the full prompt text (shell-quoted)
+      {prompt_file} the absolute path to the prompt .md (shell-quoted)
+      {stage}       independent-seat | blind-reviewer | chair
+    """
+    return (
+        template.replace("{prompt}", shlex.quote(prompt_text))
+        .replace("{prompt_file}", shlex.quote(str(prompt_path)))
+        .replace("{stage}", shlex.quote(stage))
+    )
+
+
+def _invoke_runner(
+    runner: str,
+    deeptutor_bin: str,
+    prompt_text: str,
+    prompt_path: Path,
+    *,
+    stage: str,
+    cwd: Path,
+    env: dict[str, str],
+    timeout_seconds: int,
+) -> tuple[Any, Any]:
+    """Run one seat/reviewer/chair prompt through the configured model runner.
+
+    Returns ``(completed, command)`` where ``completed`` is the
+    ``subprocess.CompletedProcess`` and ``command`` is the executed command
+    (a list for the default deeptutor runner, a shell string for a template).
+    ``TimeoutExpired``/``OSError`` propagate to the caller's attempt loop.
+    """
+    env = dict(env)
+    env["YIMING_PROMPT_FILE"] = str(prompt_path)
+    env["YIMING_PROMPT_STAGE"] = stage
+    if runner == "deeptutor":
+        command = [
+            deeptutor_bin,
+            "run",
+            "chat",
+            prompt_text,
+            "--language",
+            "zh",
+            "--format",
+            "json",
+        ]
+        completed = subprocess.run(
+            command,
+            cwd=cwd,
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+        return completed, command
+    command = _fill_runner(runner, prompt_text, prompt_path, stage)
+    completed = subprocess.run(
+        command,
+        shell=True,
+        cwd=cwd,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=timeout_seconds,
+        check=False,
+        input=prompt_text,
+    )
+    return completed, command
 
 
 def _load_shared_context(source_pack: str | Path | None) -> str:

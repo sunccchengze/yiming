@@ -20,7 +20,8 @@
     "roster_mode": "people-books",
     "max_seats": 12,
     "workers": 8,
-    "timeout_seconds": 900
+    "timeout_seconds": 900,
+    "runner": "deeptutor"
   },
   "deep_tutor": {
     "version": "1.6.2",
