@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080b14">
+  <meta name="description" content="乙鸣星图：一份由项目、分支和提交组成的个人创作档案。">
+  <title>乙鸣星图 · Yiming Atlas</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+  <div class="grain"></div>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark"><span></span><span></span><span></span></div>
+        <div>
+          <p class="brand-kicker">PERSONAL ARCHIVE</p>
+          <p class="brand-title">乙鸣星图</p>
+        </div>
+      </div>
+      <div class="sidebar-rule"></div>
+      <nav class="nav" aria-label="主导航">
+        <button class="nav-item active" data-view-target="overview"><span class="nav-icon">◈</span><span>总览</span><span class="nav-index">01</span></button>
+        <button class="nav-item" data-view-target="projects"><span class="nav-icon">✦</span><span>项目档案</span><span class="nav-index">02</span></button>
+        <button class="nav-item" data-view-target="timeline"><span class="nav-icon">⌁</span><span>创作轨道</span><span class="nav-index">03</span></button>
+        <button class="nav-item" data-view-target="sparks"><span class="nav-icon">✧</span><span>灵感舱</span><span class="nav-index">04</span></button>
+        <button class="nav-item" data-view-target="capsule"><span class="nav-icon">▱</span><span>未来信</span><span class="nav-index">05</span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="data-lock">
+          <span class="lock-dot"></span>
+          <div>
+            <span class="data-lock-label">LOCAL DATA MODE</span>
+            <span class="data-lock-copy">资料只在本机生成</span>
+          </div>
+        </div>
+        <p class="sidebar-caption">“把想法做成别人<br>可以真正抵达的东西。”</p>
+        <p class="sidebar-version">ATLAS / 01 · 2026</p>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobile-menu" aria-label="打开导航">☰</button>
+        <div class="breadcrumb"><span class="breadcrumb-root">YIMING /</span><span id="breadcrumb-current">OVERVIEW</span></div>
+        <div class="topbar-right">
+          <span class="data-status"><span class="status-pulse"></span><span id="data-status-text">LOCAL SNAPSHOT</span></span>
+          <span class="topbar-date" id="topbar-date">2026.09.01</span>
+        </div>
+      </header>
+
+      <div class="views">
+        <section class="view active" id="view-overview" data-view="overview">
+          <div class="hero reveal">
+            <div class="hero-copy">
+              <p class="eyebrow"><span class="eyebrow-line"></span> CREATIVE CARTOGRAPHY / 001</p>
+              <h1>你的项目不是<br><em>散落的仓库。</em></h1>
+              <p class="hero-lede">它们是一条正在变长的轨道。<br>有的在学习，有的在起飞，有的只是在等你回头。</p>
+              <div class="hero-actions">
+                <button class="button button-primary" data-view-target="projects">进入项目档案 <span>↗</span></button>
+                <button class="text-button" data-view-target="sparks">去灵感舱 <span>→</span></button>
+              </div>
+            </div>
+            <div class="hero-orbit" aria-hidden="true">
+              <div class="orbit orbit-large"></div>
+              <div class="orbit orbit-mid"></div>
+              <div class="orbit orbit-small"></div>
+              <div class="orbit-core"><span class="core-glyph">乙</span><span class="core-ring"></span></div>
+              <span class="orbit-label label-one">BUILD</span>
+              <span class="orbit-label label-two">LEARN</span>
+              <span class="orbit-label label-three">CARE</span>
+            </div>
+          </div>
+
+          <div class="metric-grid reveal reveal-delay-1" id="metric-grid">
+            <article class="metric-card metric-blue"><p class="metric-label">REPOSITORIES</p><p class="metric-value" id="metric-repos">—</p><p class="metric-foot">已留下名字的世界</p></article>
+            <article class="metric-card metric-lilac"><p class="metric-label">BRANCHES</p><p class="metric-value" id="metric-branches">—</p><p class="metric-foot">平行发生的可能性</p></article>
+            <article class="metric-card metric-gold"><p class="metric-label">RECENT MOVES</p><p class="metric-value" id="metric-commits">—</p><p class="metric-foot">最近一个月的动作</p></article>
+            <article class="metric-card metric-pink"><p class="metric-label">ACTIVE WORLDS</p><p class="metric-value" id="metric-active">—</p><p class="metric-foot">仍在发光的项目</p></article>
+          </div>
+
+          <div class="section-heading reveal reveal-delay-2">
+            <div><p class="eyebrow">THE CONSTELLATION</p><h2>创作星图</h2></div>
+            <p class="section-note">每一个节点都是一次“我想试试”<br>拖动、点击，进入一个世界</p>
+          </div>
+          <article class="constellation-card reveal reveal-delay-2">
+            <div class="constellation-toolbar">
+              <div class="legend" id="category-legend"></div>
+              <span class="constellation-hint">CLICK A STAR TO OPEN ARCHIVE</span>
+            </div>
+            <div class="constellation-stage" id="constellation-stage">
+              <canvas id="constellation-canvas" aria-label="项目星图"></canvas>
+              <div class="constellation-empty" id="constellation-empty" hidden>生成数据后，这里会出现你的项目星图。</div>
+            </div>
+            <div class="constellation-footer"><span>中心不是“最重要的项目”</span><span>只是此刻的引力中心 <b>·</b> <span id="constellation-date">—</span></span></div>
+          </article>
+
+          <div class="section-heading reveal">
+            <div><p class="eyebrow">A READING OF THE TRAJECTORY</p><h2>轨道上的几个发现</h2></div>
+            <button class="text-button muted" data-view-target="capsule">查看未来信 <span>→</span></button>
+          </div>
+          <div class="narrative-grid reveal" id="narrative-grid"></div>
+
+          <div class="section-heading reveal">
+            <div><p class="eyebrow">LAST 31 DAYS</p><h2>最近，你在往哪里走？</h2></div>
+            <button class="text-button muted" data-view-target="timeline">打开完整轨道 <span>→</span></button>
+          </div>
+          <article class="activity-card reveal">
+            <div class="activity-summary"><span class="activity-big" id="activity-big">—</span><span class="activity-copy">次动作<br><small>非 merge 提交</small></span></div>
+            <div class="activity-bars" id="activity-bars"></div>
+            <div class="activity-axis"><span id="activity-start">—</span><span>现在</span></div>
+          </article>
+        </section>
+
+        <section class="view" id="view-projects" data-view="projects">
+          <div class="page-intro reveal"><p class="eyebrow">02 / PROJECT ARCHIVE</p><h1>项目档案</h1><p>不是按 star 排名，而是按你投入过的引力排列。</p></div>
+          <div class="archive-controls reveal reveal-delay-1">
+            <label class="search-box"><span>⌕</span><input id="project-search" type="search" placeholder="搜索项目、描述或分支…" autocomplete="off"></label>
+            <div class="filter-row" id="project-filters"></div>
+          </div>
+          <div class="archive-meta reveal reveal-delay-1"><span id="project-result-count">—</span><span>点击卡片查看完整档案</span></div>
+          <div class="project-grid reveal reveal-delay-2" id="project-grid"></div>
+        </section>
+
+        <section class="view" id="view-timeline" data-view="timeline">
+          <div class="page-intro reveal"><p class="eyebrow">03 / CREATIVE ORBIT</p><h1>创作轨道</h1><p>有些日子没有 commit，但并不代表没有在想。</p></div>
+          <article class="timeline-hero reveal reveal-delay-1">
+            <div class="timeline-hero-copy"><p class="eyebrow">A MONTH IN MOTION</p><h2><span id="timeline-total">—</span> 次留下痕迹</h2><p>合并提交被淡出，真正的动作留下来。</p></div>
+            <div class="timeline-rings" aria-hidden="true"><span></span><span></span><i>31<br><small>DAYS</small></i></div>
+          </article>
+          <div class="full-timeline-grid">
+            <article class="panel activity-panel reveal"><div class="panel-heading"><div><p class="eyebrow">DAILY SIGNAL</p><h3>每日信号</h3></div><span class="panel-badge">UTC / LOCAL</span></div><div class="big-activity-bars" id="big-activity-bars"></div><div class="activity-axis"><span id="timeline-start">—</span><span id="timeline-end">—</span></div></article>
+            <article class="panel commit-panel reveal reveal-delay-1"><div class="panel-heading"><div><p class="eyebrow">HIGHLIGHTS</p><h3>最近的动作</h3></div><span class="panel-badge" id="highlight-count">—</span></div><div class="commit-list" id="commit-list"></div></article>
+          </div>
+        </section>
+
+        <section class="view" id="view-sparks" data-view="sparks">
+          <div class="page-intro reveal"><p class="eyebrow">04 / NEXT EXPERIMENT</p><h1>灵感舱</h1><p>不是凭空想一个点子，而是把你已经走过的两条路接起来。</p></div>
+          <div class="spark-layout">
+            <article class="spark-generator panel reveal reveal-delay-1">
+              <div class="panel-heading"><div><p class="eyebrow">COMBINATION ENGINE</p><h3>选择两个引力源</h3></div><span class="spark-symbol">✧</span></div>
+              <p class="panel-copy">一个来自你正在建造的东西，一个来自你正在学习或在乎的东西。交叉处通常比答案更有趣。</p>
+              <div class="spark-selects"><label><span>第一颗星</span><select id="spark-first"></select></label><span class="plus">＋</span><label><span>第二颗星</span><select id="spark-second"></select></label></div>
+              <button class="button button-primary spark-button" id="spark-button">生成下一步 <span>✦</span></button>
+              <p class="spark-footnote">这不是预测，是一台把旧材料重新排列的机器。</p>
+            </article>
+            <article class="spark-result panel reveal reveal-delay-2" id="spark-result">
+              <div class="spark-result-placeholder"><span>✧</span><p>你的下一个实验<br>还没有被点亮</p><small>选择两颗星，然后让它们相遇</small></div>
+            </article>
+          </div>
+          <div class="section-heading reveal"><div><p class="eyebrow">UNFINISHED MATTER</p><h2>未完成也算轨道</h2></div></div>
+          <div class="unfinished-grid reveal" id="unfinished-grid"></div>
+        </section>
+
+        <section class="view" id="view-capsule" data-view="capsule">
+          <div class="page-intro reveal"><p class="eyebrow">05 / TIME CAPSULE</p><h1>写给未来的你</h1><p>事实是地基，解释是我们暂时借来的灯。</p></div>
+          <div class="capsule-layout">
+            <article class="letter panel reveal reveal-delay-1">
+              <div class="letter-top"><span class="letter-stamp">Y / 01</span><span id="letter-date">2026.09.01 · LOCAL ARCHIVE</span></div>
+              <div class="letter-body" id="letter-body"></div>
+              <div class="letter-signature"><span>— 来自还在试的人</span><span class="signature-mark">乙鸣</span></div>
+              <button class="button button-outline" id="download-letter">下载这封信 <span>↓</span></button>
+            </article>
+            <div class="capsule-side reveal reveal-delay-2">
+              <article class="fact-panel panel"><p class="eyebrow">WHAT THE DATA SAYS</p><h3>事实</h3><ul id="fact-list"></ul></article>
+              <article class="interpretation-panel panel"><p class="eyebrow">WHAT WE CHOOSE TO SEE</p><h3>解释</h3><ul id="interpretation-list"></ul></article>
+            </div>
+          </div>
+          <div class="privacy-note reveal"><span>⌁</span><p><b>关于数据：</b>这份星图是从本地生成的 GitHub 快照，不会自动上传。事实来自仓库、branch 和 commit；页面里的“发现”和“灵感”是可修改的解释，不是对你的定义。</p></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modal-backdrop" hidden></div>
+  <dialog class="project-modal" id="project-modal" aria-labelledby="modal-title">
+    <button class="modal-close" id="modal-close" aria-label="关闭">×</button>
+    <div class="modal-content" id="modal-content"></div>
+  </dialog>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
