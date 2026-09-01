@@ -55,7 +55,7 @@
     const legend = $("#category-legend");
     if (!legend) return;
     legend.innerHTML = (state.data.categories || []).map(category => `<button class="legend-item" data-category-filter="${escapeHTML(category.id)}"><span class="legend-dot" style="background:${category.color || COLORS[category.id]}"></span><span>${escapeHTML(category.name)}</span><b>${formatNumber(category.repoCount)}</b></button>`).join("");
-    $$("[data-category-filter]", legend).forEach(button => button.addEventListener("click", () => { state.category = state.category === button.dataset.categoryFilter ? "all" : button.dataset.categoryFilter; renderProjects(); updateLegendState(); }));
+    $$("[data-category-filter]", legend).forEach(button => button.addEventListener("click", () => { state.category = state.category === button.dataset.categoryFilter ? "all" : button.dataset.categoryFilter; renderProjects(); updateLegendState(); navigate("projects"); }));
     updateLegendState();
   }
   function updateLegendState() { $$("[data-category-filter]").forEach(button => button.classList.toggle("active", state.category === button.dataset.categoryFilter)); }
@@ -143,7 +143,11 @@
     // center pulse
     context.beginPath(); context.arc(center.x, center.y, 26, 0, Math.PI * 2); context.fillStyle = "rgba(115,217,255,.05)"; context.fill(); context.strokeStyle = "rgba(115,217,255,.35)"; context.stroke();
     state.nodes.forEach(node => { const gradient = context.createRadialGradient(node.x, node.y, 0, node.x, node.y, node.r * 4); gradient.addColorStop(0, `${node.color}aa`); gradient.addColorStop(1, `${node.color}00`); context.beginPath(); context.fillStyle = gradient; context.arc(node.x, node.y, node.r * 4, 0, Math.PI * 2); context.fill(); context.beginPath(); context.fillStyle = node.color; context.arc(node.x, node.y, node.r, 0, Math.PI * 2); context.fill(); context.beginPath(); context.strokeStyle = `${node.color}66`; context.arc(node.x, node.y, node.r + 4, 0, Math.PI * 2); context.stroke(); context.fillStyle = "rgba(237,240,251,.78)"; context.font = "10px " + getComputedStyle(document.body).fontFamily; context.fillText(node.repo.name, node.x + node.r + 8, node.y + 3); });
-    canvas.onclick = event => { const bounds = canvas.getBoundingClientRect(); const x = event.clientX - bounds.left; const y = event.clientY - bounds.top; const node = state.nodes.find(item => Math.hypot(item.x - x, item.y - y) < item.r + 12); if (node) openProject(node.repo.id); };
+    const tooltip = $("#star-tooltip");
+    const findNode = event => { const bounds = canvas.getBoundingClientRect(); const x = event.clientX - bounds.left; const y = event.clientY - bounds.top; return { x, y, node: state.nodes.find(item => Math.hypot(item.x - x, item.y - y) < item.r + 12) }; };
+    canvas.onmousemove = event => { const hit = findNode(event); if (!hit.node) { tooltip.hidden = true; canvas.style.cursor = "crosshair"; return; } const repo = hit.node.repo; tooltip.innerHTML = `<b>${escapeHTML(repo.name)}</b><span>${escapeHTML(categoryName(categoryFor(repo)))} · ${formatNumber(repo.meaningfulCommitCount ?? repo.recentCommitCount)} moves</span><small>点击打开档案</small>`; tooltip.style.left = `${Math.min(hit.x + 15, rect.width - 190)}px`; tooltip.style.top = `${Math.max(12, hit.y - 12)}px`; tooltip.hidden = false; canvas.style.cursor = "pointer"; };
+    canvas.onmouseleave = () => { tooltip.hidden = true; canvas.style.cursor = "crosshair"; };
+    canvas.onclick = event => { const hit = findNode(event); if (hit.node) openProject(hit.node.repo.id); };
   }
 
   function renderSparks() {
