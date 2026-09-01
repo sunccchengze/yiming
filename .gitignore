@@ -157,3 +157,6 @@ minillm/runs/
 *.pt
 *.pth
 *.safetensors
+
+# Generated personal atlas data
+atlas/data/
