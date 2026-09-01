@@ -3,7 +3,11 @@
 
   const COLORS = { learning: "#f5c96a", engineering: "#73d9ff", agent: "#c5a4ff", personal: "#ff9dbb" };
   const CATEGORY_NAMES = { learning: "学习系统", engineering: "工程现场", agent: "AI 与工作流", personal: "重要的人" };
-  const state = { data: null, activeView: "overview", category: "all", query: "", nodes: [], spark: null };
+  let savedSparks = [];
+  try { savedSparks = JSON.parse(localStorage.getItem("yiming-atlas-sparks") || "[]"); if (!Array.isArray(savedSparks)) savedSparks = []; } catch (_) { savedSparks = []; }
+  let savedUi = {};
+  try { savedUi = JSON.parse(localStorage.getItem("yiming-atlas-ui") || "{}"); } catch (_) { savedUi = {}; }
+  const state = { data: null, activeView: "overview", category: savedUi.category || "all", query: savedUi.query || "", nodes: [], spark: null };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
@@ -16,6 +20,7 @@
     repositories: [], timeline: [], commits: [], highlights: [], narrative: [],
   };
 
+  function saveUiState() { try { localStorage.setItem("yiming-atlas-ui", JSON.stringify({ category: state.category, query: state.query })); } catch (_) {} }
   function formatNumber(value) { return Number(value || 0).toLocaleString("zh-CN"); }
   function shortDate(value, withYear = false) {
     if (!value) return "—";
@@ -104,7 +109,7 @@
     const target = $("#project-filters"); if (!target) return;
     const buttons = [{ id: "all", name: "全部", color: COLORS.blue }, ...(state.data.categories || [])];
     target.innerHTML = buttons.map(item => `<button class="filter-button ${state.category === item.id ? "active" : ""}" style="--filter-color:${item.color || COLORS[item.id] || COLORS.blue}" data-project-filter="${escapeHTML(item.id)}">${escapeHTML(item.name)}</button>`).join("");
-    $$("[data-project-filter]", target).forEach(button => button.addEventListener("click", () => { state.category = button.dataset.projectFilter; renderProjects(); updateLegendState(); }));
+    $$("[data-project-filter]", target).forEach(button => button.addEventListener("click", () => { state.category = button.dataset.projectFilter; saveUiState(); renderProjects(); updateLegendState(); }));
   }
   function renderProjects() {
     renderFilters();
@@ -162,6 +167,15 @@
     $("#spark-button").onclick = generateSpark;
     const unfinished = $("#unfinished-grid"); const repos = (state.data.repositories || []).filter(repo => (repo.branches || []).length > 1 || !repo.latestCommit);
     unfinished.innerHTML = (repos.length ? repos.slice(0, 6) : (state.data.repositories || []).slice(-3)).map(repo => `<article class="unfinished-card"><p>${escapeHTML(repo.name)}</p><span>${formatNumber(repo.branchCount)} 个可能性 · ${repo.latestCommit ? "仍有信号" : "等待回访"}</span></article>`).join("") || `<article class="unfinished-card"><p>等你把第一颗星放进来。</p><span>LOCAL / UNFINISHED</span></article>`;
+    renderSavedSparks();
+  }
+
+  function renderSavedSparks() {
+    const target = $("#saved-grid"); const count = $("#saved-count"); if (!target) return;
+    if (count) count.textContent = `${savedSparks.length} SAVED`;
+    if (!savedSparks.length) { target.innerHTML = `<article class="saved-empty"><span>＋</span><p>还没有收藏的轨道。</p><small>先生成一条，再决定它要不要留下。</small></article>`; return; }
+    target.innerHTML = savedSparks.map((item, index) => `<article class="saved-card"><div><p class="saved-combo">${escapeHTML(item.first)} × ${escapeHTML(item.second)}</p><h3>${escapeHTML(item.title)}</h3><span>${escapeHTML(dateLabel(item.createdAt))}</span></div><button class="saved-remove" data-remove-spark="${index}" aria-label="删除这条灵感">×</button></article>`).join("");
+    $$('[data-remove-spark]', target).forEach(button => button.addEventListener("click", () => { savedSparks.splice(Number(button.dataset.removeSpark), 1); try { localStorage.setItem("yiming-atlas-sparks", JSON.stringify(savedSparks)); } catch (_) {} renderSavedSparks(); showToast("这条轨道已收回。", "gold"); }));
   }
   const sparkTemplates = [
     (a, b) => ({ title: `把「${a.name}」做成可以被另一个人使用的工具`, body: `从 ${a.name} 里拿出一个最有力量的机制，再用 ${b.name} 的表达方式把它交给真实的人。不要先做完整平台，先做一个 10 分钟能走完的体验。`, steps: ["找出一个核心动作", "写一个最小场景", "让一个人实际走完"] }),
@@ -170,9 +184,10 @@
   ];
   function generateSpark() {
     const a = (state.data.repositories || []).find(repo => repo.id === $("#spark-first").value); const b = (state.data.repositories || []).find(repo => repo.id === $("#spark-second").value); if (!a || !b || a.id === b.id) { showToast("请选择两颗不同的星。", "pink"); return; }
-    const seed = Math.floor(a.name.length + b.name.length + (a.activityScore || 0)) % sparkTemplates.length; const result = sparkTemplates[seed](a, b); state.spark = result;
+    const seed = Math.floor(a.name.length + b.name.length + (a.activityScore || 0)) % sparkTemplates.length; const result = sparkTemplates[seed](a, b);
     const signal = `${a.name}：${formatNumber(a.branchCount)} branch / ${formatNumber(a.meaningfulCommitCount ?? a.recentCommitCount)} moves；${b.name}：${formatNumber(b.branchCount)} branch / ${formatNumber(b.meaningfulCommitCount ?? b.recentCommitCount)} moves`;
-    $("#spark-result").innerHTML = `<div class="spark-result-filled"><p class="eyebrow">SIGNAL ACQUIRED / ${escapeHTML(a.name.toUpperCase())} × ${escapeHTML(b.name.toUpperCase())}</p><h2>${escapeHTML(result.title)}</h2><p>${escapeHTML(result.body)}</p><div class="spark-steps">${result.steps.map((step, index) => `<div class="spark-step"><b>0${index + 1}</b><span>${escapeHTML(step)}</span></div>`).join("")}</div><p class="spark-signal"><span>DATA BASIS</span>${escapeHTML(signal)}</p><button class="button button-outline spark-copy" id="spark-copy">复制实验 brief <span>↗</span></button></div>`;
+    state.spark = { ...result, first: a.name, second: b.name, signal, createdAt: new Date().toISOString() };
+    $("#spark-result").innerHTML = `<div class="spark-result-filled"><p class="eyebrow">SIGNAL ACQUIRED / ${escapeHTML(a.name.toUpperCase())} × ${escapeHTML(b.name.toUpperCase())}</p><h2>${escapeHTML(result.title)}</h2><p>${escapeHTML(result.body)}</p><div class="spark-steps">${result.steps.map((step, index) => `<div class="spark-step"><b>0${index + 1}</b><span>${escapeHTML(step)}</span></div>`).join("")}</div><p class="spark-signal"><span>DATA BASIS</span>${escapeHTML(signal)}</p><div class="spark-actions"><button class="button button-outline spark-copy" id="spark-copy">复制实验 brief <span>↗</span></button><button class="button button-outline spark-save" id="spark-save">收藏这条轨道 <span>＋</span></button></div></div>`;
     $("#spark-copy").onclick = async () => { const brief = `${result.title}
 
 ${result.body}
@@ -180,6 +195,7 @@ ${result.body}
 步骤：${result.steps.join("；")}
 
 数据依据：${signal}`; try { await navigator.clipboard.writeText(brief); showToast("实验 brief 已复制。", "blue"); } catch (_) { showToast("复制失败，但 brief 已经生成在右侧。", "pink"); } };
+    $("#spark-save").onclick = () => { if (!state.spark) return; savedSparks = [state.spark, ...savedSparks.filter(item => item.title !== state.spark.title)].slice(0, 12); try { localStorage.setItem("yiming-atlas-sparks", JSON.stringify(savedSparks)); } catch (_) {} renderSavedSparks(); showToast("这条轨道已收藏。", "gold"); };
     showToast("一条新的轨道被点亮了。", "blue");
   }
 
@@ -201,14 +217,14 @@ ${result.body}
 
   function bindEvents() {
     $$('[data-view-target]').forEach(item => item.addEventListener("click", () => navigate(item.dataset.viewTarget)));
-    $("#project-search").addEventListener("input", event => { state.query = event.target.value.trim(); renderProjects(); });
+    $("#project-search").addEventListener("input", event => { state.query = event.target.value.trim(); saveUiState(); renderProjects(); });
     $("#mobile-menu").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
     $("#modal-close").addEventListener("click", closeModal); $("#modal-backdrop").addEventListener("click", closeModal); $("#project-modal").addEventListener("cancel", closeModal); window.addEventListener("resize", () => { if (state.activeView === "overview") drawConstellation(); });
   }
 
   async function init() {
     state.data = await loadData();
-    const generated = state.data.stats?.repositories > 0 && !(state.data.privacy?.sourceTypes || []).includes("demo"); $("#data-status-text").textContent = generated ? "LOCAL SNAPSHOT" : "DEMO SNAPSHOT"; $("#topbar-date").textContent = shortDate(state.data.generatedAt, true).replaceAll(".", ".");
+    const generated = state.data.stats?.repositories > 0 && !(state.data.privacy?.sourceTypes || []).includes("demo"); $("#data-status-text").textContent = generated ? "LOCAL SNAPSHOT" : "DEMO SNAPSHOT"; $("#topbar-date").textContent = shortDate(state.data.generatedAt, true).replaceAll(".", "."); $("#project-search").value = state.query;
     renderStats(); renderLegend(); renderNarrative(); renderTimeline(); renderProjects(); renderSparks(); renderLetter(); bindEvents(); setTimeout(drawConstellation, 80);
   }
   init();
