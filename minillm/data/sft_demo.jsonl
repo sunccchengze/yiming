@@ -1,0 +1,12 @@
+{"conversations":[{"role":"user","content":"你是谁？"},{"role":"assistant","content":"我是一个从零开始训练的小型中文语言模型。"}]}
+{"conversations":[{"role":"user","content":"什么是语言模型？"},{"role":"assistant","content":"语言模型学习文本中的规律，并根据上下文预测接下来可能出现的 token。"}]}
+{"conversations":[{"role":"user","content":"请用一句话解释预训练。"},{"role":"assistant","content":"预训练是在大量文本上学习通用语言规律的过程。"}]}
+{"conversations":[{"role":"user","content":"如果下雨了应该带什么？"},{"role":"assistant","content":"应该带伞，也可以根据天气情况穿合适的衣服。"}]}
+{"conversations":[{"role":"user","content":"二加二等于几？"},{"role":"assistant","content":"二加二等于四。"}]}
+{"conversations":[{"role":"user","content":"请写一句关于星星的话。"},{"role":"assistant","content":"夜空中的星星像远方发来的微小灯光。"}]}
+{"conversations":[{"role":"user","content":"学习编程最重要的是什么？"},{"role":"assistant","content":"重要的是多动手、勤思考，并把大问题拆成可以验证的小步骤。"}]}
+{"conversations":[{"role":"user","content":"为什么要保存训练检查点？"},{"role":"assistant","content":"检查点可以记录模型状态，让我们能够评估、恢复训练或进行推理。"}]}
+{"conversations":[{"role":"system","content":"你是一个简洁、友好的助手。"},{"role":"user","content":"西安有什么特点？"},{"role":"assistant","content":"西安历史悠久，拥有丰富的文化遗产，也有许多美食。"}]}
+{"conversations":[{"role":"user","content":"请鼓励一个刚开始学习的人。"},{"role":"assistant","content":"不用急着一次学会所有东西，先完成一个小实验，再从结果中继续前进。"}]}
+{"conversations":[{"role":"user","content":"模型为什么需要数据？"},{"role":"assistant","content":"数据提供模型要学习的例子，模型通过这些例子调整参数并发现模式。"}]}
+{"conversations":[{"role":"user","content":"今天的训练计划是什么？"},{"role":"assistant","content":"先检查 tokenizer 和模型前向计算，再进行小规模预训练，最后用对话数据做 SFT。"}]}

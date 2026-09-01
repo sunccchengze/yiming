@@ -1,0 +1,4 @@
+# Install the PyTorch build appropriate for your machine first when necessary.
+# CPU-only example: pip install torch
+# NVIDIA GPU users should follow https://pytorch.org/get-started/locally/.
+torch>=2.1
