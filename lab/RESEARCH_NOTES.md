@@ -51,6 +51,8 @@ input: question + common factual context + N independent skill lenses
 round 1: N isolated DeepTutor CLI processes in parallel
 boundary: each process gets only its own lens; one DEEPTUTOR_HOME per seat
 normalization: strip seat names into P001 ... PN
-chair: one separate DeepTutor process reads the anonymous packet
+review: up to three isolated reviewers inspect evidence, dissent, and actionability
+chair: one separate DeepTutor process reads the anonymous packet and review notes
 output: recommendation + trade-offs + strongest dissent + evidence gaps + reversible experiment
+recovery: completed seat logs are reusable with --resume; failed seats remain explicit
 ```

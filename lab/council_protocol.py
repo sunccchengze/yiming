@@ -33,6 +33,7 @@ def prepare_council(
     skill_roots: Iterable[str | Path] = (),
     roster_mode: str = "people-books",
     max_seats: int = 12,
+    reviewer_count: int = 3,
     source_pack: str | Path | None = None,
     seat_excerpt_chars: int = 12_000,
     allow_repo_output: bool = False,
@@ -40,6 +41,8 @@ def prepare_council(
 ) -> dict[str, Any]:
     if max_seats < 0:
         raise CouncilError("max_seats cannot be negative")
+    if reviewer_count < 0 or reviewer_count > 3:
+        raise CouncilError("reviewer_count must be between 0 and 3")
     roots = [Path(root).expanduser().resolve() for root in skill_roots if str(root).strip()]
     seats = discover_roster(roots, mode=roster_mode, limit=max_seats)
     if not seats:
@@ -83,8 +86,10 @@ def prepare_council(
             "independent_first": True,
             "peer_answers_hidden_until_blind_review": True,
             "blind_review": True,
+            "reviewer_count": reviewer_count,
             "fixed_rounds": 1,
             "chair_after_fanout": True,
+            "resumable": True,
         },
         "task": task.strip(),
         "route": route,
@@ -107,10 +112,14 @@ def prepare_council(
             "roster": str(output / "roster.json"),
             "seats": str(seat_dir),
             "blind_packet": str(output / "blind-packet.json"),
+            "reviewers": str(output / "reviewers"),
+            "reviewer_results": str(output / "reviewer-results.json"),
+            "dissent_ledger": str(output / "DISSENT_LEDGER.md"),
             "final": str(output / "chair" / "final.md"),
         },
         "execution": {
             "seat_calls_expected": len(seats),
+            "reviewer_calls_expected": reviewer_count,
             "chair_calls_expected": 1,
             "default_workers": min(8, len(seats)),
             "backend": "deeptutor-cli",
@@ -118,6 +127,7 @@ def prepare_council(
     }
     _write_json(output / "council.json", manifest)
     _write_council_plan(output / "COUNCIL_PLAN.md", manifest, seats)
+    _write_dissent_ledger(output / "DISSENT_LEDGER.md", manifest)
     return manifest
 
 
@@ -211,17 +221,21 @@ def run_council(
     max_seats: int | None = None,
     timeout_seconds: int = 900,
     deeptutor_bin: str = "deeptutor",
+    resume: bool = False,
 ) -> dict[str, Any]:
     run = load_council(run_path)
     output = Path(run["artifacts"]["roster"]).parent
     seats = [Seat(**row) for row in run["roster"]["seats"]]
     if max_seats is not None and max_seats > 0:
         seats = seats[:max_seats]
+    reviewer_count = int(run.get("protocol", {}).get("reviewer_count", 0))
     if not execute:
         return {
             "status": "dry-run",
             "run": str(output),
             "seat_count": len(seats),
+            "reviewer_count": reviewer_count,
+            "expected_calls": len(seats) + reviewer_count + 1,
             "commands": [_seat_command(deeptutor_bin, output, seat) for seat in seats],
             "chair_command": _chair_command(deeptutor_bin, output),
         }
@@ -232,28 +246,52 @@ def run_council(
     if workers < 1:
         raise CouncilError("workers must be at least 1")
     workers = min(workers, len(seats))
+    previous = _read_previous_results(output / "seat-results.json") if resume else {}
     results: list[dict[str, Any]] = []
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {
-            pool.submit(
-                _run_one_seat,
-                output,
-                seat,
-                deeptutor_bin,
-                timeout_seconds,
-            ): seat
-            for seat in seats
-        }
-        for future in as_completed(futures):
-            results.append(future.result())
+    pending: list[Seat] = []
+    for seat in seats:
+        cached = previous.get(seat.seat_id)
+        if cached and cached.get("status") == "completed" and Path(cached.get("stdout_path", "")).is_file():
+            reused = dict(cached)
+            reused["resumed"] = True
+            results.append(reused)
+        else:
+            pending.append(seat)
+    if pending:
+        with ThreadPoolExecutor(max_workers=min(workers, len(pending))) as pool:
+            futures = {
+                pool.submit(
+                    _run_one_seat,
+                    output,
+                    seat,
+                    deeptutor_bin,
+                    timeout_seconds,
+                ): seat
+                for seat in pending
+            }
+            for future in as_completed(futures):
+                results.append(future.result())
     results.sort(key=lambda item: item["seat_id"])
     _write_json(output / "seat-results.json", {"results": results})
     blind = _build_blind_packet(output, seats, results)
     _write_json(output / "blind-packet.json", blind)
-    chair = _run_chair(output, run, blind, deeptutor_bin, timeout_seconds)
+    reviewers = _run_reviewers(
+        output,
+        run,
+        blind,
+        reviewer_count,
+        deeptutor_bin,
+        timeout_seconds,
+    )
+    _write_json(output / "reviewer-results.json", {"results": reviewers})
+    _write_dissent_ledger(output / "DISSENT_LEDGER.md", run, blind, reviewers)
+    chair = _run_chair(output, run, blind, reviewers, deeptutor_bin, timeout_seconds)
+    all_seats_completed = all(item.get("status") == "completed" for item in results)
     summary = {
-        "status": "completed" if chair["status"] == "completed" else "partial",
+        "status": "completed" if chair["status"] == "completed" and all_seats_completed else "partial",
+        "resumed": resume,
         "seat_results": results,
+        "reviewer_results": reviewers,
         "blind_packet": blind,
         "chair": chair,
     }
@@ -324,7 +362,9 @@ def _build_blind_packet(
             {
                 "anonymous_id": f"P{index:03d}",
                 "status": result.get("status", "missing"),
-                "response": raw[-50_000:],
+                # Keep the chair command below common OS argv limits while
+                # retaining both the opening framing and the final recommendation.
+                "response": _compact(raw, 6_000),
             }
         )
     return {
@@ -334,10 +374,170 @@ def _build_blind_packet(
     }
 
 
+REVIEWER_ROLES: tuple[tuple[str, str], ...] = (
+    (
+        "evidence",
+        "检查匿名提案中的事实、证据缺口、可核验性和未经支持的因果断言。不要按席位身份评价。",
+    ),
+    (
+        "dissent",
+        "寻找最强少数意见、隐藏前提、反例和多数意见可能忽略的失败模式。主动反对过早共识。",
+    ),
+    (
+        "action",
+        "检查方案是否可执行、可逆、成本可控，并设计最小实验、停止条件和人工批准点。",
+    ),
+)
+
+
+def _run_reviewers(
+    output: Path,
+    run: dict[str, Any],
+    blind: dict[str, Any],
+    reviewer_count: int,
+    deeptutor_bin: str,
+    timeout_seconds: int,
+) -> list[dict[str, Any]]:
+    if reviewer_count <= 0:
+        return []
+    selected = list(REVIEWER_ROLES[:reviewer_count])
+    reviewer_root = output / "reviewers"
+    reviewer_root.mkdir(parents=True, exist_ok=True)
+    with ThreadPoolExecutor(max_workers=min(3, len(selected))) as pool:
+        futures = {
+            pool.submit(
+                _run_one_reviewer,
+                output,
+                run,
+                blind,
+                index + 1,
+                role,
+                instruction,
+                deeptutor_bin,
+                timeout_seconds,
+            ): role
+            for index, (role, instruction) in enumerate(selected)
+        }
+        results = [future.result() for future in as_completed(futures)]
+    results.sort(key=lambda item: item["reviewer_id"])
+    return results
+
+
+def _run_one_reviewer(
+    output: Path,
+    run: dict[str, Any],
+    blind: dict[str, Any],
+    reviewer_number: int,
+    role: str,
+    instruction: str,
+    deeptutor_bin: str,
+    timeout_seconds: int,
+) -> dict[str, Any]:
+    reviewer_id = f"reviewer-{reviewer_number:02d}-{role}"
+    reviewer_dir = output / "reviewers" / reviewer_id
+    reviewer_dir.mkdir(parents=True, exist_ok=True)
+    prompt = build_reviewer_prompt(run, blind, role, instruction)
+    _atomic_write(reviewer_dir / "prompt.md", prompt)
+    home = output / "runtime" / "reviewers" / reviewer_id
+    home.mkdir(parents=True, exist_ok=True)
+    command = _reviewer_command(deeptutor_bin, reviewer_dir)
+    env = os.environ.copy()
+    env["DEEPTUTOR_HOME"] = str(home)
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=output,
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+        _atomic_write(reviewer_dir / "stdout.log", completed.stdout or "")
+        _atomic_write(reviewer_dir / "stderr.log", completed.stderr or "")
+        status = "completed" if completed.returncode == 0 else "failed"
+        error = None if status == "completed" else f"exit_{completed.returncode}"
+    except subprocess.TimeoutExpired as exc:
+        _atomic_write(reviewer_dir / "stdout.log", _as_text(exc.stdout))
+        _atomic_write(reviewer_dir / "stderr.log", _as_text(exc.stderr))
+        status, error = "timeout", "timeout"
+    except OSError as exc:
+        _atomic_write(reviewer_dir / "stdout.log", "")
+        _atomic_write(reviewer_dir / "stderr.log", str(exc))
+        status, error = "failed", type(exc).__name__
+    return {
+        "reviewer_id": reviewer_id,
+        "role": role,
+        "status": status,
+        "error_code": error,
+        "prompt_path": str(reviewer_dir / "prompt.md"),
+        "stdout_path": str(reviewer_dir / "stdout.log"),
+        "stderr_path": str(reviewer_dir / "stderr.log"),
+        "command": command,
+    }
+
+
+def build_reviewer_prompt(
+    run: dict[str, Any],
+    blind: dict[str, Any],
+    role: str,
+    instruction: str,
+) -> str:
+    context = _load_shared_context(run.get("shared_context", {}).get("source_pack"))
+    return f"""# Blind council reviewer: {role}
+
+You are an independent reviewer after the first pass. You do not know the
+identity of any proposal and must not try to recover it. {instruction}
+
+## Question
+
+{run['task']}
+
+## Common context
+
+<context>
+{context}
+</context>
+
+## Anonymous proposals
+
+<proposals>
+{json.dumps(blind['proposals'], ensure_ascii=False, indent=2)}
+</proposals>
+
+## Required review
+
+Return:
+
+- strongest supported proposal(s), with anonymous IDs;
+- strongest unsupported claim(s), with anonymous IDs;
+- strongest dissent or counterexample;
+- one correction the chair must make;
+- one evidence check or reversible experiment;
+- confidence and what evidence would change it.
+
+Do not turn frequency into truth. Do not perform external side effects.
+"""
+
+
+def _reviewer_command(deeptutor_bin: str, reviewer_dir: Path) -> list[str]:
+    return [
+        deeptutor_bin,
+        "run",
+        "chat",
+        (reviewer_dir / "prompt.md").read_text(encoding="utf-8"),
+        "--language",
+        "zh",
+        "--format",
+        "json",
+    ]
+
+
 def _run_chair(
     output: Path,
     run: dict[str, Any],
     blind: dict[str, Any],
+    reviewers: list[dict[str, Any]],
     deeptutor_bin: str,
     timeout_seconds: int,
 ) -> dict[str, Any]:
@@ -345,7 +545,7 @@ def _run_chair(
     chair_dir.mkdir(parents=True, exist_ok=True)
     chair_home = output / "runtime" / "chair"
     chair_home.mkdir(parents=True, exist_ok=True)
-    prompt = build_chair_prompt(run, blind)
+    prompt = build_chair_prompt(run, blind, reviewers)
     _atomic_write(chair_dir / "prompt.md", prompt)
     command = _chair_command(deeptutor_bin, output)
     env = os.environ.copy()
@@ -385,9 +585,25 @@ def _run_chair(
     }
 
 
-def build_chair_prompt(run: dict[str, Any], blind: dict[str, Any]) -> str:
+def build_chair_prompt(
+    run: dict[str, Any],
+    blind: dict[str, Any],
+    reviewers: list[dict[str, Any]] | None = None,
+) -> str:
     context_path = run.get("shared_context", {}).get("source_pack")
     context = _load_shared_context(context_path)
+    reviewer_packet = []
+    for reviewer in reviewers or []:
+        stdout_path = Path(reviewer.get("stdout_path", ""))
+        response = stdout_path.read_text(encoding="utf-8", errors="replace") if stdout_path.is_file() else ""
+        reviewer_packet.append(
+            {
+                "reviewer_id": reviewer.get("reviewer_id"),
+                "role": reviewer.get("role"),
+                "status": reviewer.get("status"),
+                "response": _compact(response, 5_000),
+            }
+        )
     return f"""# Anonymous council chair
 
 You are the chair of a decision-support council. The user owns the decision.
@@ -409,6 +625,15 @@ consensus and do not use a seat's historical prestige as evidence.
 <proposals>
 {json.dumps(blind['proposals'], ensure_ascii=False, indent=2)}
 </proposals>
+
+## Independent review notes
+
+These reviews are also advisory and may be wrong. Preserve disagreement instead
+of averaging it away:
+
+<reviews>
+{json.dumps(reviewer_packet, ensure_ascii=False, indent=2)}
+</reviews>
 
 ## Required memo
 
@@ -466,6 +691,71 @@ def _load_shared_context(source_pack: str | Path | None) -> str:
     return "\n\n".join(parts)[:30_000] or "The source pack is empty; treat facts as unknown."
 
 
+def _read_previous_results(path: Path) -> dict[str, dict[str, Any]]:
+    if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return {}
+    rows = payload.get("results", []) if isinstance(payload, dict) else []
+    return {
+        str(row.get("seat_id")): row
+        for row in rows
+        if isinstance(row, dict) and row.get("seat_id")
+    }
+
+
+def _write_dissent_ledger(
+    path: Path,
+    manifest: dict[str, Any],
+    blind: dict[str, Any] | None = None,
+    reviewers: list[dict[str, Any]] | None = None,
+) -> None:
+    lines = [
+        "# Dissent ledger",
+        "",
+        "> This file is a deliberate place for minority views, unresolved claims, and reasons not to act yet.",
+        "",
+        f"- Question: {manifest.get('task', 'unknown')}",
+        f"- Seats: {manifest.get('roster', {}).get('count', 'unknown')}",
+        "",
+        "## Before chair synthesis",
+        "",
+        "- [ ] Record the strongest minority position, even if it is not recommended.",
+        "- [ ] Record at least one proposal that is attractive but weakly evidenced.",
+        "- [ ] Record which disagreement is empirical and which is value-based.",
+        "- [ ] Record what experiment would falsify the leading recommendation.",
+        "",
+    ]
+    if blind is not None:
+        proposals = blind.get("proposals", [])
+        lines.extend(["## Blind packet status", "", f"- Proposals received: **{len(proposals)}**"])
+        lines.extend(
+            f"- `{item.get('anonymous_id')}`: `{item.get('status')}`"
+            for item in proposals
+        )
+        lines.append("")
+    if reviewers is not None:
+        lines.extend(["## Reviewer notes", ""])
+        for reviewer in reviewers:
+            lines.append(
+                f"- `{reviewer.get('reviewer_id')}` ({reviewer.get('role')}): `{reviewer.get('status')}`; see `{reviewer.get('stdout_path')}`"
+            )
+        lines.append("")
+    lines.extend(
+        [
+            "## Chair completion checklist",
+            "",
+            "- [ ] Memo names the strongest dissent and why it could be right.",
+            "- [ ] Memo labels unsupported claims and exact evidence gaps.",
+            "- [ ] Memo proposes a reversible experiment and a stop condition.",
+            "- [ ] User has reviewed the memo before any external action.",
+        ]
+    )
+    _atomic_write(path, "\n".join(lines) + "\n")
+
+
 def _write_council_plan(path: Path, manifest: dict[str, Any], seats: list[Seat]) -> None:
     lines = [
         "# Yiming Council plan",
@@ -477,13 +767,14 @@ def _write_council_plan(path: Path, manifest: dict[str, Any], seats: list[Seat])
         "1. Fan out one isolated DeepTutor process per seat.",
         "2. Do not pass peer outputs into any seat process.",
         "3. Persist raw seat outputs locally for audit, then strip names into a blind packet.",
-        "4. Run one chair only after the packet is complete.",
-        "5. Inspect dissent, evidence gaps, and the reversible experiment before acting.",
+        "4. Run independent evidence, dissent, and action reviewers over the blind packet.",
+        "5. Run one chair only after the packet and reviews are complete.",
+        "6. Inspect dissent, evidence gaps, and the reversible experiment before acting.",
         "",
         f"- Seat count: **{len(seats)}**",
-        f"- Expected calls: **{len(seats)} seat + 1 chair**",
+        f"- Expected calls: **{manifest['execution']['seat_calls_expected']} seat + {manifest['execution']['reviewer_calls_expected']} reviewer + 1 chair**",
         f"- Default parallel workers: **{manifest['execution']['default_workers']}**",
-        "- Round cap: **1 independent pass + 1 chair**",
+        "- Round cap: **1 independent pass + 1 blind review pass + 1 chair**",
         "",
         "## Seats",
         "",
@@ -516,6 +807,16 @@ def _write_json(path: Path, payload: Any) -> None:
 
 def _md_inline(value: Any) -> str:
     return str(value).replace("|", "\\|").replace("\n", " ").strip()
+
+
+def _compact(value: str, limit: int) -> str:
+    if len(value) <= limit:
+        return value
+    marker = "\n\n[proposal compacted by adapter]\n\n"
+    budget = max(2, limit - len(marker))
+    left = max(1, budget // 2)
+    right = max(1, budget - left)
+    return value[:left].rstrip() + marker + value[-right:].lstrip()
 
 
 def _as_text(value: Any) -> str:

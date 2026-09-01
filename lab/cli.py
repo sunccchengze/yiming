@@ -83,6 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
     council_prepare.add_argument("--skill-root", action="append", default=[])
     council_prepare.add_argument("--roster-mode", choices=("people-books", "distilled", "all"), default="people-books")
     council_prepare.add_argument("--max-seats", type=int, default=12, help="0 means all matching seats")
+    council_prepare.add_argument("--reviewer-count", type=int, default=3, help="0 disables blind reviewer calls; max 3")
     council_prepare.add_argument("--source-pack")
     council_prepare.add_argument("--seat-excerpt-chars", type=int, default=12_000)
     council_prepare.add_argument("--task", default=DEFAULT_TASK)
@@ -96,6 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
     council_run.add_argument("--workers", type=int, default=8)
     council_run.add_argument("--max-seats", type=int, default=None)
     council_run.add_argument("--timeout-seconds", type=int, default=900)
+    council_run.add_argument("--resume", action="store_true", help="reuse completed seat outputs and rerun only missing/failed seats")
     council_run.add_argument("--deeptutor-bin", default="deeptutor")
     council_run.set_defaults(handler=_handle_council_run)
 
@@ -228,6 +230,7 @@ def _handle_council_prepare(args: argparse.Namespace) -> int:
         skill_roots=args.skill_root,
         roster_mode=args.roster_mode,
         max_seats=args.max_seats,
+        reviewer_count=args.reviewer_count,
         source_pack=args.source_pack,
         seat_excerpt_chars=args.seat_excerpt_chars,
         allow_repo_output=args.allow_repo_output,
@@ -245,6 +248,7 @@ def _handle_council_run(args: argparse.Namespace) -> int:
         max_seats=args.max_seats,
         timeout_seconds=args.timeout_seconds,
         deeptutor_bin=args.deeptutor_bin,
+        resume=args.resume,
     )
     print(json.dumps(_public_run_summary(result), ensure_ascii=False, indent=2))
     return 0
@@ -307,6 +311,8 @@ def _public_run_summary(result: dict[str, Any]) -> dict[str, Any]:
             "status": "dry-run",
             "run": result["run"],
             "seat_count": result["seat_count"],
+            "reviewer_count": result.get("reviewer_count", 0),
+            "expected_calls": result.get("expected_calls"),
             "seat_commands": len(result["commands"]),
             "chair_command_present": bool(result.get("chair_command")),
             "next": "add --execute after installing/configuring DeepTutor",
@@ -316,6 +322,10 @@ def _public_run_summary(result: dict[str, Any]) -> dict[str, Any]:
         "seat_results": [
             {key: value for key, value in item.items() if key not in {"command"}}
             for item in result.get("seat_results", [])
+        ],
+        "reviewer_results": [
+            {key: value for key, value in item.items() if key != "command"}
+            for item in result.get("reviewer_results", [])
         ],
         "chair": {key: value for key, value in result.get("chair", {}).items() if key != "command"},
         "next": "inspect blind-packet.json, chair/final.md, dissent, and quality gates before acting",

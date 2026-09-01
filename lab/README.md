@@ -16,7 +16,8 @@ Yiming Council 不把每本书、每个人重新实现成一套 agent framework�
 - 第一轮用并行进程扇出，席位不读取其他席位的 prompt/output；
 - 每个席位拥有独立的 `DEEPTUTOR_HOME`，不共享 session、memory 或 notebook；
 - 所有席位结束后才建立不含姓名的 `blind-packet.json`；
-- 主席只读匿名提案，并输出最终决策 memo；
+- 证据、分歧、行动三个 reviewer 只读匿名提案，分别找无证据断言、最强少数意见和不可逆动作；
+- 主席只读匿名提案与 reviewer notes，并输出最终决策 memo；
 - `prepare` 和默认 `run` 都不调用模型，只有明确加 `--execute` 才会产生模型调用。
 
 这比让一群 agent 一开始就聊天更适合“百人圆桌”：先保留真正的异议，再让
@@ -90,6 +91,7 @@ python -m lab council prepare \
   --skill-root /path/to/skill-main \
   --roster-mode people-books \
   --max-seats 0 \
+  --reviewer-count 3 \
   --source-pack /path/to/the/run/source-pack \
   --task '从我最近的项目轨迹中找出最值得做的下一个研究实验，比较方案，保留强烈反对意见。'
 ```
@@ -116,10 +118,11 @@ python -m lab council run \
   --workers 8
 ```
 
-席位阶段是 `N` 次并行调用，主席阶段再调用 1 次；所以“百人”不是无成本
-修辞。执行前应先看 `COUNCIL_PLAN.md`，用 `--max-seats` 控制预算。每个席位
-的失败、stderr、stdout 和超时都会落在该席位自己的目录里，不会让其他席位
-看到它的中间结果。
+席位阶段是 `N` 次并行调用，接着最多 3 次盲 reviewer，最后主席再调用 1 次；
+所以“百人”不是无成本修辞。执行前应先看 `COUNCIL_PLAN.md`，用 `--max-seats`、
+`--reviewer-count` 和 `--workers` 控制预算。每个席位的失败、stderr、stdout 和
+超时都会落在该席位自己的目录里，不会让其他席位看到它的中间结果。中途失败
+后可以加 `--resume`，只重跑缺失/失败的席位，再重新审查 blind packet。
 
 ## 目录与制品
 
@@ -133,7 +136,10 @@ python -m lab council run \
 │   ├── stdout.log           # 模型原始输出
 │   └── stderr.log           # 失败/诊断
 ├── runtime/seats/<seat-id>/ # 每席位独立 DEEPTUTOR_HOME
-├── blind-packet.json        # 去姓名后的提案，供主席读取
+├── blind-packet.json        # 去姓名后的提案，供 reviewer/主席读取
+├── reviewers/<reviewer-id>/ # evidence / dissent / action reviewer
+├── reviewer-results.json
+├── DISSENT_LEDGER.md        # 少数意见、反例和未决问题
 ├── chair/
 │   ├── prompt.md
 │   ├── stdout.log

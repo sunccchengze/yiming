@@ -178,10 +178,21 @@ class LabAdapterTests(unittest.TestCase):
             }
             self.assertEqual(len(homes), 2)
             self.assertTrue(all("runtime/seats" in home for home in homes))
+            self.assertEqual(len(result["reviewer_results"]), 3)
             blind = json.loads((output / "blind-packet.json").read_text(encoding="utf-8"))
             self.assertEqual(len(blind["proposals"]), 2)
             self.assertNotIn("display_name", blind["proposals"][0])
+            self.assertTrue((output / "DISSENT_LEDGER.md").is_file())
             self.assertTrue((output / "chair" / "final.md").is_file())
+            resumed = run_council(
+                output,
+                execute=True,
+                workers=2,
+                timeout_seconds=10,
+                deeptutor_bin=str(fake),
+                resume=True,
+            )
+            self.assertTrue(all(item.get("resumed") for item in resumed["seat_results"]))
 
     def test_private_output_inside_checkout_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
