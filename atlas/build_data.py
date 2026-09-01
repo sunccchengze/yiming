@@ -58,6 +58,72 @@ CATEGORY_DEFINITIONS = {
 
 MERGE_RE = re.compile(r"^merge (?:pull request|branch)\b", re.I)
 
+# Short editorial descriptions are based on the public README/tree review.
+# They stay separate from the raw GitHub facts so they can be edited without
+# changing the collector.
+REPO_EDITORIAL = {
+    "turbine-blade-ai-platform": {
+        "name": "叶轮机械 AI 平台",
+        "description": "用深度学习代理模型替代 CFD 做前端筛选，在 74 维设计空间里寻找叶片气动性能的 Pareto 解。",
+    },
+    "wind_farm_viz": {
+        "name": "风电场偏航优化",
+        "description": "把尾流分析、POD 降阶、3×3 阵列和实时偏航求解器做成可以直接操作的可视化现场。",
+    },
+    "zixue2026": {
+        "name": "自学 2026",
+        "description": "把概率论、科研式学习、记忆系统和 agent skills 组织成一个会持续长大的学习操作系统。",
+    },
+    "-skill-": {
+        "name": "Skill 实验场",
+        "description": "研究如何把经验、规则、记忆和交接写成下一次 agent 可以复用的工作能力。",
+    },
+    "0824-2026": {
+        "name": "八月二十四日实验场",
+        "description": "一个持续调整仪表盘、HUD 和交互细节的实验场，像是在为复杂信息寻找更好的入口。",
+    },
+    "sucheng": {
+        "name": "速成交付实验",
+        "description": "把复杂的交付、答辩和文档任务压缩成可以执行、可以检查、可以交出去的最小路径。",
+    },
+    "123": {
+        "name": "研究证据工作台",
+        "description": "不断校正研究问题、新颖性和证据边界，提醒自己不要让一个漂亮的结论跑在依据前面。",
+    },
+    "tushupdf": {
+        "name": "课程资料入口",
+        "description": "为西安交通大学课程、教材和学生使用路径整理一个更容易抵达的入口。",
+    },
+    "sectiona-cet6": {
+        "name": "CET6 阅读工作台",
+        "description": "把词汇、文章、空格分析和复习进度放进一个可以反复练习的英语学习界面。",
+    },
+    "ielts20260423scz": {
+        "name": "IELTS 练习场",
+        "description": "为英语备考搭一个更具体、更可交互的练习空间。",
+    },
+    "physics-exam-1": {
+        "name": "物理考场 / 01",
+        "description": "把物理复习拆成一个可以进入、练习和回看的互动考场。",
+    },
+    "physics-exam-2": {
+        "name": "物理考场 / 02",
+        "description": "在上一座考场之外继续试验题目、反馈和学习体验的组织方式。",
+    },
+    "yimingshengri": {
+        "name": "星际生日任务",
+        "description": "把给弟弟的生日祝福做成一场有密码、扫描、关卡、烟花和愿望卡的星际任务。",
+    },
+    "goooodbye_s-g": {
+        "name": "Goodbye, S.G.",
+        "description": "把一段难以整理的关系做成可以被看见、回顾和慢慢告别的数字空间。",
+    },
+    "hogwarts-sorting-hat-quiz": {
+        "name": "霍格沃茨分院测试",
+        "description": "用一个轻量的互动测试，把熟悉的想象世界变成一次可以参与的体验。",
+    },
+}
+
 
 def parse_date(value: str | None) -> datetime | None:
     if not value:
@@ -96,17 +162,8 @@ def classify(repo: dict[str, Any]) -> list[str]:
 
 def display_name(repo: dict[str, Any]) -> str:
     key = repo_key(repo["nameWithOwner"])
-    overrides = {
-        "-": "英仔爱心社",
-        "-skill-": "Skill 宇宙",
-        "0824-2026": "八月二十四日实验场",
-        "zixue2026": "自学 2026",
-        "turbine-blade-ai-platform": "叶轮机械 AI 平台",
-        "wind_farm_viz": "风电场偏航优化",
-        "yimingshengri": "星际生日任务",
-        "goooodbye_s-g": "Goodbye, S.G.",
-    }
-    return overrides.get(key, repo["nameWithOwner"].split("/", 1)[-1])
+    editorial = REPO_EDITORIAL.get(key)
+    return (editorial or {}).get("name") or repo["nameWithOwner"].split("/", 1)[-1]
 
 
 def clean_message(message: str) -> str:
@@ -200,12 +257,14 @@ def build(inventory: dict[str, Any], document_excerpts: dict[str, str] | None = 
         latest = max(repo_commits, key=lambda commit: commit.get("date") or "", default=None)
         meaningful = [commit for commit in repo_commits if not commit["isMerge"]]
         activity_score = len(meaningful) + len(branches) * 0.5
+        editorial = REPO_EDITORIAL.get(repo_key(full_name), {})
         repositories.append(
             {
                 "id": full_name,
                 "name": display_name(raw_repo),
                 "fullName": full_name,
-                "description": raw_repo.get("description") or "还没有写下简介，但项目本身已经留下了轨迹。",
+                "description": editorial.get("description") or raw_repo.get("description") or "还没有写下简介，但项目本身已经留下了轨迹。",
+                "editorial": bool(editorial),
                 "sourceExcerpt": document_excerpts.get(full_name),
                 "private": bool(raw_repo.get("isPrivate")),
                 "defaultBranch": (raw_repo.get("defaultBranchRef") or {}).get("name"),
