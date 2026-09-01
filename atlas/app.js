@@ -137,7 +137,10 @@
     const rect = stage.getBoundingClientRect(); const ratio = Math.min(window.devicePixelRatio || 1, 2); canvas.width = rect.width * ratio; canvas.height = rect.height * ratio; canvas.style.width = `${rect.width}px`; canvas.style.height = `${rect.height}px`;
     const context = canvas.getContext("2d"); context.setTransform(ratio, 0, 0, ratio, 0, 0); context.clearRect(0, 0, rect.width, rect.height);
     const center = { x: rect.width * .5, y: rect.height * .5 }; const groups = { learning: -2.35, engineering: -.8, agent: .45, personal: 2.25 };
-    const repos = state.data.repositories || []; state.nodes = repos.map((repo, index) => {
+    const repos = state.data.repositories || [];
+    const empty = $("#constellation-empty");
+    if (empty) empty.hidden = repos.length > 0;
+    state.nodes = repos.map((repo, index) => {
       const category = categoryFor(repo); const base = groups[category] ?? 0; const spread = ((index * 1.618) % 1) - .5; const radius = Math.min(rect.width, rect.height) * (.2 + ((index * 37) % 100) / 100 * .26); const angle = base + spread * 1.45; return { repo, x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius * .72, r: Math.max(4, Math.min(9, 4 + Math.log1p(repo.activityScore || 1))), color: colorFor(repo) };
     });
     // faint orbit lanes
