@@ -113,7 +113,38 @@ def clean_message(message: str) -> str:
     return " ".join(str(message).strip().split())
 
 
-def build(inventory: dict[str, Any]) -> dict[str, Any]:
+def load_document_excerpts(corpus_path: str | Path | None) -> dict[str, str]:
+    """Return short README/docs excerpts without embedding full source files."""
+    if not corpus_path:
+        return {}
+    excerpts: dict[str, str] = {}
+    path = Path(corpus_path)
+    if not path.exists():
+        raise FileNotFoundError(f"corpus file not found: {path}")
+    with open(path, "r", encoding="utf-8") as handle:
+        for line in handle:
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if record.get("kind") != "repository_file":
+                continue
+            file_path = str(record.get("path", ""))
+            lower_path = file_path.lower()
+            if not (lower_path.startswith("readme") or "/readme" in lower_path or "/docs/" in f"/{lower_path}/"):
+                continue
+            repo = str(record.get("repo", ""))
+            if not repo or repo in excerpts:
+                continue
+            raw_text = str(record.get("text", ""))
+            excerpt = raw_text.split("文件内容：\n", 1)[-1].strip()
+            if excerpt:
+                excerpts[repo] = excerpt[:1600].rstrip() + ("\n……" if len(excerpt) > 1600 else "")
+    return excerpts
+
+
+def build(inventory: dict[str, Any], document_excerpts: dict[str, str] | None = None) -> dict[str, Any]:
+    document_excerpts = document_excerpts or {}
     repositories: list[dict[str, Any]] = []
     all_commits: list[dict[str, Any]] = []
     activity_by_day: Counter[str] = Counter()
@@ -175,6 +206,7 @@ def build(inventory: dict[str, Any]) -> dict[str, Any]:
                 "name": display_name(raw_repo),
                 "fullName": full_name,
                 "description": raw_repo.get("description") or "还没有写下简介，但项目本身已经留下了轨迹。",
+                "sourceExcerpt": document_excerpts.get(full_name),
                 "private": bool(raw_repo.get("isPrivate")),
                 "defaultBranch": (raw_repo.get("defaultBranchRef") or {}).get("name"),
                 "updatedAt": raw_repo.get("updatedAt"),
@@ -270,12 +302,13 @@ def build(inventory: dict[str, Any]) -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build Yiming Atlas data from an account inventory")
     parser.add_argument("--inventory", required=True)
+    parser.add_argument("--corpus", default=None, help="optional cleaned JSONL for README/docs excerpts")
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
     inventory_path = Path(args.inventory)
     output_path = Path(args.out)
     inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
-    data = build(inventory)
+    data = build(inventory, load_document_excerpts(args.corpus))
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"atlas data written to {output_path}")

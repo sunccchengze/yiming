@@ -14,6 +14,7 @@
 ```bash
 python -m atlas.build_data \
   --inventory minillm/artifacts/account_inventory.json \
+  --corpus minillm/artifacts/github_corpus.jsonl \
   --out atlas/data/generated.json
 ```
 

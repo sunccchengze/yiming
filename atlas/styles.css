@@ -303,6 +303,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .modal-latest { padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: rgba(0, 0, 0, .1); }
 .modal-latest p { margin: 0; color: var(--text-soft); font-size: 11px; }
 .modal-latest span { display: block; margin-top: 6px; color: var(--text-dim); font: 9px var(--font-mono); }
+.modal-excerpt { max-height: 210px; padding: 13px; overflow-y: auto; border: 1px solid rgba(115, 217, 255, .12); border-radius: 9px; color: var(--text-soft); background: rgba(115, 217, 255, .035); font: 11px/1.85 var(--font-body); white-space: normal; }
 .modal-recent-list { display: grid; gap: 7px; }
 .modal-recent { display: grid; grid-template-columns: 40px minmax(0, 1fr) 85px; gap: 8px; align-items: center; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; }
 .modal-recent > span, .modal-recent > small { color: var(--text-dim); font: 8px var(--font-mono); }

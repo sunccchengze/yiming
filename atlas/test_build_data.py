@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from .build_data import build
+from .build_data import build, load_document_excerpts
 
 
 class BuildDataTest(unittest.TestCase):
@@ -39,6 +39,22 @@ class BuildDataTest(unittest.TestCase):
         self.assertEqual(result["repositories"][0]["categories"], ["learning"])
         self.assertEqual(result["repositories"][0]["latestCommit"]["sha"], "c1")
         self.assertEqual(len(result["timeline"]), 31)
+
+    def test_document_excerpt_is_attached_without_full_source(self) -> None:
+        from tempfile import TemporaryDirectory
+        import json
+        from pathlib import Path
+
+        with TemporaryDirectory() as temporary:
+            corpus = Path(temporary) / "corpus.jsonl"
+            corpus.write_text(json.dumps({
+                "kind": "repository_file",
+                "repo": "sunccchengze/demo",
+                "path": "README.md",
+                "text": "项目仓库：sunccchengze/demo\n文件内容：\n这是项目说明。\n这里是第二行。"
+            }, ensure_ascii=False) + "\n", encoding="utf-8")
+            excerpts = load_document_excerpts(corpus)
+            self.assertEqual(excerpts["sunccchengze/demo"], "这是项目说明。\n这里是第二行。")
 
     def test_merge_commits_are_not_meaningful(self) -> None:
         result = build(
