@@ -160,7 +160,7 @@
   ];
   function generateSpark() {
     const a = (state.data.repositories || []).find(repo => repo.id === $("#spark-first").value); const b = (state.data.repositories || []).find(repo => repo.id === $("#spark-second").value); if (!a || !b || a.id === b.id) { showToast("请选择两颗不同的星。", "pink"); return; }
-    const seed = (a.name.length + b.name.length + (a.activityScore || 0)) % sparkTemplates.length; const result = sparkTemplates[seed](a, b); state.spark = result;
+    const seed = Math.floor(a.name.length + b.name.length + (a.activityScore || 0)) % sparkTemplates.length; const result = sparkTemplates[seed](a, b); state.spark = result;
     $("#spark-result").innerHTML = `<div class="spark-result-filled"><p class="eyebrow">SIGNAL ACQUIRED / ${escapeHTML(a.name.toUpperCase())} × ${escapeHTML(b.name.toUpperCase())}</p><h2>${escapeHTML(result.title)}</h2><p>${escapeHTML(result.body)}</p><div class="spark-steps">${result.steps.map((step, index) => `<div class="spark-step"><b>0${index + 1}</b><span>${escapeHTML(step)}</span></div>`).join("")}</div></div>`;
     showToast("一条新的轨道被点亮了。", "blue");
   }
