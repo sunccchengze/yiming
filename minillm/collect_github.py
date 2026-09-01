@@ -31,7 +31,7 @@ TEXT_FILENAMES = {
     "changelog", "contributing", "authors", "notice", "procfile",
 }
 SKIP_DIRS = {
-    ".git", ".github", ".idea", ".next", ".nuxt", ".parcel-cache", ".pytest_cache",
+    ".git", ".idea", ".next", ".nuxt", ".parcel-cache", ".pytest_cache",
     ".svelte-kit", ".tox", ".venv", ".vite", "__pycache__", "build", "coverage",
     "dist", "node_modules", "out", "public", "target", "vendor", "web_modules",
 }

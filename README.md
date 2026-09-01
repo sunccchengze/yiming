@@ -1,13 +1,41 @@
 # yiming
 
-这是一个从零训练小型语言模型的实验仓库。
+当前主线是 **Yiming Lab / Council**：一个建立在成熟 GitHub 项目之上的、本地优先的
+「百人圆桌」决策研讨室。
 
-当前主线位于 [`minillm/`](minillm/)，目标是参考 [MiniMind](https://github.com/jingyaogong/minimind) 的思路，用 PyTorch 原生实现一条可以理解、可以运行、可以逐步扩展的训练链路：
+它不重新发明一个孤立的 agent 产品，也不把上游项目整仓复制进来：
 
 ```text
-tokenizer → pretrain → SFT → evaluation / generation → optional DPO or RL
+- SKILL- 中的书籍 / 人物 skill
+        ↓ 每个 skill 一个独立席位
+DeepTutor CLI 的隔离进程
+        ↓ 首轮并行、互相看不到回答
+匿名 blind packet + 主席
+        ↓
+决策备忘录 / 反对意见 / 证据缺口 / 可逆实验
 ```
 
-仓库原有的 `index.html` 是一个与本项目无关的旧网页，暂时保留但不参与模型训练。
+- [Yiming Lab / Council 使用说明](lab/README.md)
+- [外部多 Agent 实践检索记录](lab/RESEARCH_NOTES.md)
+- [Atlas：冻结的 GitHub 轨迹适配器](atlas/README.md)
+- [Atlas / 旧阶段进度](atlas/PROGRESS.md)
+- [MiniLLM：早期独立实验](minillm/README.md)
 
-快速开始请看 [`minillm/README.md`](minillm/README.md)。
+## 最小 dry-run
+
+不需要 API key，也不会调用模型：
+
+```bash
+python -m lab council roster --skill-root /path/to/-SKILL- --limit 0
+python -m lab council prepare \
+  --out "$HOME/.local/share/yiming-lab/councils/<run-id>" \
+  --skill-root /path/to/-SKILL- \
+  --roster-mode people-books \
+  --max-seats 12
+python -m lab council run \
+  --run "$HOME/.local/share/yiming-lab/councils/<run-id>"
+```
+
+只有明确添加 `--execute` 才会调用 DeepTutor；完整安装、OpenWiki 接入、隐私边界和
+66 席全量运行方式见 [`lab/README.md`](lab/README.md)。私有 run 默认写到 Git
+checkout 之外，不进入本仓库版本历史。

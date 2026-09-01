@@ -1,0 +1,32 @@
+{
+  "inventory": "minillm/artifacts/account_inventory.json",
+  "output_root": "~/.local/share/yiming-lab",
+  "skill_roots": [
+    "/path/to/skill-arena-01a048e7",
+    "/path/to/skill-main"
+  ],
+  "local_repositories": [
+    {
+      "id": "yiming",
+      "path": "."
+    }
+  ],
+  "privacy": {
+    "include_corpus": false,
+    "allow_repo_output": false,
+    "execute_models": false
+  },
+  "council": {
+    "roster_mode": "people-books",
+    "max_seats": 12,
+    "workers": 8,
+    "timeout_seconds": 900
+  },
+  "deep_tutor": {
+    "version": "1.6.2",
+    "kb_name": "yiming-lab"
+  },
+  "openwiki": {
+    "version": "0.3.2"
+  }
+}
