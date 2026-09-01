@@ -78,6 +78,25 @@ class LabAdapterTests(unittest.TestCase):
         self.assertEqual(sections["strongest_dissent"], "B")
         self.assertEqual(sections["next_experiment"], "C")
 
+    def test_chair_section_body_starting_with_alias_word_is_not_a_heading(self) -> None:
+        # A real chair body may begin with a word that is also a single-word
+        # section alias (e.g. "Confidence low for ..."). It must not truncate
+        # the preceding section heading.
+        sections = extract_sections(
+            "## Consensus and convergence\nSeveral seats converged on a small experiment.\n"
+            "## Confidence and what would change your mind\n"
+            "Confidence low for real-world correctness; higher for protocol integrity.\n"
+        )
+        self.assertEqual(sections["consensus"], "Several seats converged on a small experiment.")
+        self.assertIn(
+            "protocol integrity",
+            sections["chair_confidence"],
+            "chair_confidence body must not be truncated by an alias-word body line",
+        )
+        # Terse single-word headings must still match exactly.
+        sections = extract_sections("Confidence\nHigh.\n")
+        self.assertEqual(sections.get("chair_confidence"), "High.")
+
     def test_blind_packet_redacts_lens_identity_but_keeps_private_map(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

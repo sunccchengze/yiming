@@ -490,7 +490,14 @@ def _canonical_heading(line: str) -> str | None:
         return None
     for canonical, aliases in SECTION_ALIASES.items():
         for alias in aliases:
-            if normalized == alias or normalized.startswith(alias + " "):
+            if normalized == alias:
+                return canonical
+            # A single-word alias like "Confidence" is ambiguous: a body line that
+            # merely begins with the same word ("Confidence low for ...") must not be
+            # mistaken for a heading. Only allow a heading prefix when the alias is a
+            # multi-word phrase, so a short terse heading such as "Confidence" still
+            # matches exactly without swallowing long body sentences.
+            if " " in alias and normalized.startswith(alias + " "):
                 return canonical
     return None
 
