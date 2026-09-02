@@ -60,9 +60,7 @@ python -m unittest lab.test_lab        # 期望 12 tests OK
 
 ## 3. 选择模型后端（二选一）
 
-### 方式 A：DeepTutor CLI（默认，推荐先跑通）
-
-```bash
+### 方式 A：DeepTutor CLI（默认，推荐先跑通）```bash
 pip install 'deeptutor[cli]==1.6.2'
 deeptutor init --cli          # 交互式：选 DeepSeek / 填 key / 填 deepseek-chat
 # 或直接写 DeepTutor 的 model_catalog.json（放其数据目录，勿提交仓库）
@@ -102,6 +100,8 @@ prompt 还会通过 stdin 传入，并暴露 `$YIMING_PROMPT_FILE` / `$YIMING_PR
 
 > 安全：`--runner` 使用 `shell=True` 执行你提供的模板。它是你自己的配置，但请
 > 只使用可信模板，不要直接拼接不受信的用户输入。
+
+> OpenClaude 的完整安装/配置/日常用法（不限于圆桌）见 [`OPENCLAUDE_GUIDE.md`](OPENCLAUDE_GUIDE.md)。
 
 ---
 

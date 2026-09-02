@@ -156,6 +156,7 @@ prompt 同时会通过 stdin 传入，并暴露 `$YIMING_PROMPT_FILE`、`$YIMING
 默认（不加 `--runner`）仍走 DeepTutor：`deeptutor run chat <prompt> --language zh --format json`。
 
 > 完整启动流程、结果解读与安全边界见 [`lab/RUNBOOK.md`](RUNBOOK.md)。
+> OpenClaude 作为通用 Agent 的安装/配置/日常用法见 [`lab/OPENCLAUDE_GUIDE.md`](OPENCLAUDE_GUIDE.md)。
 
 ## 目录与制品
 
