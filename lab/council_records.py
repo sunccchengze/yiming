@@ -15,6 +15,11 @@ from pathlib import Path
 import re
 from typing import Any, Iterable
 
+# Matches any CJK (Chinese/Japanese/Korean) character. Used to decide whether a
+# section alias can safely act as a prefix for headings, since CJK text has no
+# spaces/word boundaries.
+_HAS_CJK = re.compile(r"[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]")
+
 
 BALLOT_WEIGHTS: dict[str, float] = {
     "evidence": 0.35,
@@ -30,14 +35,14 @@ SECTION_ALIASES: dict[str, tuple[str, ...]] = {
     "best_argument": ("Best argument", "最强论点"),
     "strongest_objection": ("Strongest objection", "最强反对意见"),
     "evidence_needed": ("Evidence needed", "需要的证据"),
-    "next_experiment": ("Small reversible next experiment", "Reversible next experiment", "可逆的下一步实验", "下一步实验"),
-    "stop_condition": ("Stop condition", "停止条件"),
+    "next_experiment": ("Small reversible next experiment", "Reversible next experiment", "可逆的下一步实验", "下一步实验", "最小可逆实验", "小步可逆实验"),
+    "stop_condition": ("Stop condition",),
     "confidence": ("Confidence and why", "置信度及原因", "置信度"),
-    "decision_frame": ("Decision frame and what is actually known", "决策框架与已知事实"),
+    "decision_frame": ("Decision frame and what is actually known", "决策框架与已知事实", "决策框架"),
     "options": ("Options and trade-offs", "选项与权衡"),
     "recommendation": ("Recommendation, if one is justified", "建议（如果证据足够）", "Recommendation", "建议"),
-    "consensus": ("Consensus and convergence", "共识与收敛"),
-    "strongest_dissent": ("Strongest dissent and why it might be right", "最强少数意见及其可能正确的原因", "Strongest dissent", "最强少数意见"),
+    "consensus": ("Consensus and convergence", "共识与收敛", "共识与趋同"),
+    "strongest_dissent": ("Strongest dissent and why it might be right", "最强少数意见及其可能正确的原因", "Strongest dissent", "最强少数意见", "最强异议"),
     "evidence_gaps": ("Evidence gaps and claims that must not be repeated as facts", "证据缺口及不可当作事实的主张", "Evidence gaps", "证据缺口"),
     "stop_conditions": ("Stop conditions / human approval points", "停止条件／人工批准点", "Stop conditions", "停止条件"),
     "chair_confidence": ("Confidence and what would change your mind", "置信度及什么会改变判断", "Confidence"),
@@ -498,6 +503,14 @@ def _canonical_heading(line: str) -> str | None:
             # multi-word phrase, so a short terse heading such as "Confidence" still
             # matches exactly without swallowing long body sentences.
             if " " in alias and normalized.startswith(alias + " "):
+                return canonical
+            # CJK aliases have no word boundaries/spaces, so a heading such as
+            # "共识与收敛（及分歧）" or "最强异议与对策" begins with the alias but
+            # not with "alias + space". Allow a prefix match only when the alias
+            # contains CJK characters AND is long enough to be unambiguous (>=4
+            # chars), so a terse 2-3 char alias like "置信度" or "建议" never
+            # swallows longer headings belonging to another section.
+            if _HAS_CJK.match(alias) and len(alias) >= 4 and normalized.startswith(alias):
                 return canonical
     return None
 

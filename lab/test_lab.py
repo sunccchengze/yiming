@@ -78,6 +78,34 @@ class LabAdapterTests(unittest.TestCase):
         self.assertEqual(sections["strongest_dissent"], "B")
         self.assertEqual(sections["next_experiment"], "C")
 
+    def test_chair_cjk_heading_variants_are_extracted(self) -> None:
+        # Real chairs free-edit the Chinese headings ("共识与趋同" vs the alias
+        # "共识与收敛", "最强异议" vs "最强少数意见", "最小可逆实验"). These near
+        # synonyms must still map to the canonical sections.
+        sections = extract_sections(
+            "## 共识与趋同\nA\n"
+            "## 最强异议与对策\nB\n"
+            "## 最小可逆实验\nC\n"
+            "## 决策框架\nD\n"
+            "## 停止条件 / 人工批准点\nE\n"
+            "## 置信度及什么会改变判断\nF\n"
+        )
+        self.assertEqual(sections.get("consensus"), "A")
+        self.assertEqual(sections.get("strongest_dissent"), "B")
+        self.assertEqual(sections.get("next_experiment"), "C")
+        self.assertEqual(sections.get("decision_frame"), "D")
+        self.assertEqual(sections.get("stop_conditions"), "E")
+        self.assertEqual(sections.get("chair_confidence"), "F")
+        # A terse English single-word heading still matches exactly (and must
+        # not trigger on a body line that merely starts with the word).
+        self.assertEqual(extract_sections("Confidence\nHigh.\n").get("chair_confidence"), "High.")
+        # A terse CJK alias must not swallow a longer heading of another section:
+        # the seat-group "置信度" must not capture the chair's longer confidence heading.
+        self.assertNotEqual(
+            extract_sections("## 置信度及什么会改变判断\nX\n").get("confidence"),
+            "X",
+        )
+
     def test_chair_section_body_starting_with_alias_word_is_not_a_heading(self) -> None:
         # A real chair body may begin with a word that is also a single-word
         # section alias (e.g. "Confidence low for ..."). It must not truncate
